@@ -254,7 +254,7 @@ function updateUserLocation(position) {
       userLocationMarker.setLatLng([latitude, longitude]);
     }
 
-    map.setView([latitude, longitude], 13);
+    if (!userLocationMarker) map.setView([latitude, longitude], 13);
     map.invalidateSize();
   }
 
