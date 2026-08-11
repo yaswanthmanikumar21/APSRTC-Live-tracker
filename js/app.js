@@ -154,7 +154,17 @@ function releaseWakeLock() {
 function renderBusCards() {
   busList.innerHTML = '';
 
-  sampleBuses.forEach((bus) => {
+  const busesToRender = getActiveBusCatalog();
+
+  if (!busesToRender.length) {
+    const emptyCard = document.createElement('article');
+    emptyCard.className = 'bus-card';
+    emptyCard.innerHTML = '<p class="bus-route">No buses available right now.</p>';
+    busList.appendChild(emptyCard);
+    return;
+  }
+
+  busesToRender.forEach((bus) => {
     const card = document.createElement('article');
     card.className = 'bus-card';
 
@@ -166,6 +176,44 @@ function renderBusCards() {
 
     busList.appendChild(card);
   });
+}
+
+async function loadBusCatalog() {
+  if (!window.supabaseHelpers) {
+    busCatalog = sampleBuses.map((bus) => normalizeBusRecord(bus)).filter(Boolean);
+    renderBusCards();
+    searchMessage.textContent = 'Bus catalog is unavailable right now. Showing sample bus data.';
+    return;
+  }
+
+  searchMessage.textContent = 'Loading bus catalog...';
+
+  try {
+    const { data, error } = await window.supabaseHelpers.getBuses();
+
+    if (error) {
+      throw error;
+    }
+
+    const normalizedBuses = (data || [])
+      .map((bus) => normalizeBusRecord(bus))
+      .filter(Boolean);
+
+    if (normalizedBuses.length > 0) {
+      busCatalog = normalizedBuses;
+      renderBusCards();
+      searchMessage.textContent = `Loaded ${normalizedBuses.length} buses from the live catalog.`;
+    } else {
+      busCatalog = sampleBuses.map((bus) => normalizeBusRecord(bus)).filter(Boolean);
+      renderBusCards();
+      searchMessage.textContent = 'No bus records were returned from Supabase. Showing sample data.';
+    }
+  } catch (error) {
+    console.error('Failed to load buses from Supabase', error);
+    busCatalog = sampleBuses.map((bus) => normalizeBusRecord(bus)).filter(Boolean);
+    renderBusCards();
+    searchMessage.textContent = 'Unable to load the bus catalog right now. Showing sample data.';
+  }
 }
 
 function stopLocationSharing(message = 'Location sharing stopped.') {
@@ -576,17 +624,18 @@ searchForm.addEventListener('submit', async (event) => {
     return;
   }
 
-  const match = sampleBuses.find((bus) => bus.busNumber.toLowerCase() === query.toLowerCase());
+  const availableBuses = getActiveBusCatalog();
+  const match = availableBuses.find((bus) => String(bus.busNumber).toLowerCase() === query.toLowerCase());
 
   if (match) {
     await showBusDetails(match);
-    searchMessage.textContent = `Showing sample details for bus ${match.busNumber}.`;
+    searchMessage.textContent = `Showing details for bus ${match.busNumber}.`;
   } else {
-    stopPolling();
+    stopRealtimeSubscription();
     clearLiveBusMarker();
     resultCard.hidden = true;
     mapWrapper.hidden = true;
-    searchMessage.textContent = `No sample data for ${query} yet. Try 300K, 999, or 900K.`;
+    searchMessage.textContent = `No matching bus found for ${query}. Try a bus number from the live catalog.`;
   }
 });
 
@@ -603,3 +652,4 @@ document.addEventListener('visibilitychange', () => {
 
 initMap();
 renderBusCards();
+loadBusCatalog();

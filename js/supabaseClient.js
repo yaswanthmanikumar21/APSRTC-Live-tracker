@@ -56,6 +56,19 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       return resultData?.[0] ?? null;
     },
 
+    async getBuses() {
+      if (!window.supabaseClient) {
+        return { data: [], error: new Error('Supabase client is not available.') };
+      }
+
+      const { data, error } = await window.supabaseClient
+        .from('buses')
+        .select('id, bus_number, bus_code, active, route, starting_point, destination, stops')
+        .order('bus_number', { ascending: true });
+
+      return { data, error };
+    },
+
     async getLatestActiveBusLocation(busNumber) {
       if (!busNumber) {
         return { data: null, error: null };
