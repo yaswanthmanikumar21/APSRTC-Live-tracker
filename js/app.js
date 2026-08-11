@@ -65,6 +65,7 @@ let lastSeenBusUpdatedAt = null;
 let isSharingActive = false;
 let realtimeSubscription = null;
 let currentRealtimeBusNumber = null;
+let wakeLockSentinel = null;
 let gpsDebugStatus = 'waiting';
 let gpsDebugCallbackTime = 'none';
 let gpsDebugLatitude = 'none';
@@ -119,6 +120,37 @@ function initMap() {
   sampleMarker.bindPopup('SAMPLE LOCATION<br>Not a real APSRTC bus location.');
 }
 
+async function requestWakeLock() {
+  if (typeof navigator === 'undefined' || !navigator.wakeLock) {
+    console.error('Wake Lock API is not supported in this browser.');
+    return;
+  }
+
+  if (document.visibilityState === 'hidden') {
+    return;
+  }
+
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => {
+      console.log('Screen wake lock released');
+    });
+  } catch (error) {
+    console.error('Failed to acquire wake lock:', error);
+  }
+}
+
+function releaseWakeLock() {
+  if (!wakeLockSentinel) {
+    return;
+  }
+
+  wakeLockSentinel.release().catch((error) => {
+    console.error('Failed to release wake lock:', error);
+  });
+  wakeLockSentinel = null;
+}
+
 function renderBusCards() {
   busList.innerHTML = '';
 
@@ -153,6 +185,8 @@ function stopLocationSharing(message = 'Location sharing stopped.') {
     map.removeLayer(userLocationMarker);
     userLocationMarker = null;
   }
+
+  releaseWakeLock();
 
   lastSavedCoordinates = null;
   lastSavedBusNumber = null;
@@ -254,7 +288,7 @@ function updateUserLocation(position) {
       userLocationMarker.setLatLng([latitude, longitude]);
     }
 
-    if (!userLocationMarker) map.setView([latitude, longitude], 13);
+    if (!userLocationMarker) map.setView([latitude, longitude]);
     map.invalidateSize();
   }
 
@@ -336,6 +370,8 @@ function startLocationSharing() {
       maximumAge: 0
     }
   );
+
+  requestWakeLock();
 
   if (selectedDuration > 0) {
     locationTimer = setTimeout(() => {
@@ -426,7 +462,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   liveMessage.textContent = `Live bus location found. Last updated: ${lastUpdated}`;
 
   if (map && !markerAlreadyExists) {
-    map.setView(currentPosition, 13);
+    map.setView(currentPosition);
     map.invalidateSize();
   }
 }
@@ -557,6 +593,12 @@ searchForm.addEventListener('submit', async (event) => {
 shareLocationBtn.addEventListener('click', startLocationSharing);
 stopSharingBtn.addEventListener('click', () => {
   stopLocationSharing('Location sharing stopped.');
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    requestWakeLock();
+  }
 });
 
 initMap();
