@@ -1,4 +1,4 @@
-const SUPABASE_URL = 'https://fwtgmetudrfqhgtcyfxi.supabase.co';
+﻿const SUPABASE_URL = 'https://fwtgmetudrfqhgtcyfxi.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_ZjjT3XB8Ii8lJmfkl2MTRg_ZWEWDpnM";
 
 if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
@@ -25,17 +25,17 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         expires_at: expiresAt
       };
 
-      console.log('Supabase insert payload', payload);
+      console.log('Supabase upsert payload', payload);
 
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/bus_location_shares?select=*`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/bus_location_shares?on_conflict=bus_number&select=*`, {
         method: 'POST',
         headers: {
           apikey: SUPABASE_PUBLISHABLE_KEY,
           Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           'Content-Type': 'application/json',
-          Prefer: 'return=representation'
+          Prefer: 'return=representation,resolution=merge-duplicates'
         },
-        body: JSON.stringify([payload])
+        body: JSON.stringify(payload)
       });
 
       const responseText = await response.text();
@@ -47,13 +47,13 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         resultData = null;
       }
 
-      console.log('Supabase insert result', { status: response.status, data: resultData, responseText });
+      console.log('Supabase upsert result', { status: response.status, data: resultData, responseText });
 
       if (!response.ok) {
-        throw new Error(`Supabase insert failed with status ${response.status}: ${responseText}`);
+        throw new Error(`Supabase upsert failed with status ${response.status}: ${responseText}`);
       }
 
-      return resultData?.[0] ?? null;
+      return Array.isArray(resultData) ? resultData[0] ?? null : resultData ?? null;
     },
 
     async getBuses() {
