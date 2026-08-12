@@ -8,7 +8,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
   );
 
   window.supabaseHelpers = {
-    async insertShare({ busNumber, latitude, longitude, expiresAt }) {
+    async insertShare({ busNumber, busCode, latitude, longitude, expiresAt }) {
       if (!busNumber) {
         throw new Error('A bus number is required before saving location data.');
       }
@@ -19,6 +19,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
       const payload = {
         bus_number: busNumber,
+        bus_code: busCode || null,
         latitude,
         longitude,
         updated_at: new Date().toISOString(),
@@ -27,27 +28,27 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
       console.log('Preparing bus location update payload', payload);
 
-      try {
-        const { data: existingRows, error: selectError } = await window.supabaseClient
-          .from('bus_location_shares')
-          .select('id')
-          .eq('bus_number', busNumber)
-          .limit(1);
+      const selector = busCode ? window.supabaseClient.from('bus_location_shares').eq('bus_code', busCode) : window.supabaseClient.from('bus_location_shares').eq('bus_number', busNumber);
 
+      try {
+        const { data: existingRows, error: selectError } = await selector.select('id').limit(1);
         if (selectError) {
           throw selectError;
         }
 
         if (existingRows && existingRows.length > 0) {
-          const { data, error } = await window.supabaseClient
-            .from('bus_location_shares')
+          const updateSelector = window.supabaseClient.from('bus_location_shares');
+          const query = busCode ? updateSelector.eq('bus_code', busCode) : updateSelector.eq('bus_number', busNumber);
+
+          const { data, error } = await query
             .update({
+              bus_number: busNumber,
+              bus_code: busCode || null,
               latitude,
               longitude,
               updated_at: payload.updated_at,
               expires_at: expiresAt
             })
-            .eq('bus_number', busNumber)
             .select('*')
             .single();
 
@@ -80,15 +81,18 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
           throw error;
         }
 
-        const { data, error: updateError } = await window.supabaseClient
-          .from('bus_location_shares')
+        const updateSelector = window.supabaseClient.from('bus_location_shares');
+        const query = busCode ? updateSelector.eq('bus_code', busCode) : updateSelector.eq('bus_number', busNumber);
+
+        const { data, error: updateError } = await query
           .update({
+            bus_number: busNumber,
+            bus_code: busCode || null,
             latitude,
             longitude,
             updated_at: payload.updated_at,
             expires_at: expiresAt
           })
-          .eq('bus_number', busNumber)
           .select('*')
           .single();
 
@@ -122,34 +126,26 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         .from('buses')
         .select('id, bus_number, bus_code, active, route, starting_point, destination, stops')
         .eq('bus_number', busNumber)
-        .maybeSingle();
+        .order('created_at', { ascending: true })
+        .limit(1);
 
-      return { data, error };
+      return { data: Array.isArray(data) && data.length > 0 ? data[0] : null, error };
     },
 
-    async getLatestActiveBusLocation(busNumber) {
-      if (!busNumber) {
-        return { data: null, error: null };
+    async getActiveBusSharesForRoute(busNumber) {
+      if (!busNumber || !window.supabaseClient) {
+        return { data: [], error: new Error('A bus number is required to lookup active sessions.') };
       }
 
       const nowTime = Date.now();
-      const now = new Date(nowTime).toISOString();
-      console.log('Supabase select query started', {
-        busNumber,
-        now,
-        query: 'bus_location_shares'
-      });
-
       const { data, error } = await window.supabaseClient
         .from('bus_location_shares')
-        .select('bus_number, latitude, longitude, updated_at, expires_at')
+        .select('bus_number, bus_code, latitude, longitude, updated_at, expires_at')
         .eq('bus_number', busNumber)
         .order('updated_at', { ascending: false });
 
-      console.log('Supabase select result', { busNumber, now, data, error });
-
       if (error) {
-        return { data: null, error };
+        return { data: [], error };
       }
 
       const activeRows = (data || []).filter((row) => {
@@ -159,7 +155,76 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
         const expiresAt = new Date(row.expires_at).getTime();
         const updatedAt = new Date(row.updated_at).getTime();
+        return expiresAt > nowTime && updatedAt <= nowTime;
+      });
 
+      return { data: activeRows, error: null };
+    },
+
+    async getActiveBusLocationShares() {
+      if (!window.supabaseClient) {
+        return { data: [], error: new Error('Supabase client is not available.') };
+      }
+
+      const nowTime = Date.now();
+      const { data, error } = await window.supabaseClient
+        .from('bus_location_shares')
+        .select('bus_number, bus_code, latitude, longitude, updated_at, expires_at')
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        return { data: [], error };
+      }
+
+      const activeRows = (data || []).filter((row) => {
+        if (!row.expires_at || !row.updated_at) {
+          return false;
+        }
+
+        const expiresAt = new Date(row.expires_at).getTime();
+        const updatedAt = new Date(row.updated_at).getTime();
+        return expiresAt > nowTime && updatedAt <= nowTime;
+      });
+
+      return { data: activeRows, error: null };
+    },
+
+    async getLatestActiveBusLocation(busNumber, busCode = null) {
+      if (!busNumber && !busCode) {
+        return { data: null, error: null };
+      }
+
+      const nowTime = Date.now();
+      const now = new Date(nowTime).toISOString();
+      console.log('Supabase select query started', {
+        busNumber,
+        busCode,
+        now,
+        query: 'bus_location_shares'
+      });
+
+      const query = window.supabaseClient.from('bus_location_shares').select('bus_number, bus_code, latitude, longitude, updated_at, expires_at');
+
+      if (busCode) {
+        query.eq('bus_code', busCode);
+      } else if (busNumber) {
+        query.eq('bus_number', busNumber).order('updated_at', { ascending: false });
+      }
+
+      const { data, error } = await query;
+      console.log('Supabase select result', { busNumber, busCode, now, data, error });
+
+      if (error) {
+        return { data: null, error };
+      }
+
+      const activeRows = (Array.isArray(data) ? data : [data]).filter((row) => {
+        if (!row || !row.expires_at || !row.updated_at) {
+          return false;
+        }
+
+        const expiresAt = new Date(row.expires_at).getTime();
+        const updatedAt = new Date(row.updated_at).getTime();
         return expiresAt > nowTime && updatedAt <= nowTime;
       });
 
@@ -171,6 +236,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
       return { data: latestRow, error: null };
     }
+
   };
 } else {
   window.supabaseClient = null;

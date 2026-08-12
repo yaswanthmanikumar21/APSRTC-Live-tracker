@@ -1,7 +1,10 @@
 let busCatalog = [];
+let currentBusSessionCode = null;
+let activeBusSessions = [];
 
 const busList = document.getElementById('busList');
 const searchForm = document.getElementById('searchForm');
+const findNearbyBtn = document.getElementById('findNearbyBtn');
 const searchMessage = document.getElementById('searchMessage');
 const resultCard = document.getElementById('resultCard');
 const resultTitle = document.getElementById('resultTitle');
@@ -10,7 +13,11 @@ const resultRoute = document.getElementById('resultRoute');
 const resultStart = document.getElementById('resultStart');
 const resultDestination = document.getElementById('resultDestination');
 const resultStatus = document.getElementById('resultStatus');
+const resultSessionCode = document.getElementById('resultSessionCode');
 const resultStops = document.getElementById('resultStops');
+const activeSessionsContainer = document.getElementById('activeSessionsContainer');
+const activeSessionsMessage = document.getElementById('activeSessionsMessage');
+const activeSessionsList = document.getElementById('activeSessionsList');
 const mapWrapper = document.getElementById('mapWrapper');
 const shareLocationBtn = document.getElementById('shareLocationBtn');
 const stopSharingBtn = document.getElementById('stopSharingBtn');
@@ -39,6 +46,7 @@ let lastSeenBusUpdatedAt = null;
 let isSharingActive = false;
 let realtimeSubscription = null;
 let currentRealtimeBusNumber = null;
+let currentRealtimeBusCode = null;
 let senderLocationTicker = null;
 let busLocationTicker = null;
 let liveBusUpdatedAt = null;
@@ -280,6 +288,154 @@ function formatTimeAgo(timestamp) {
   return `${totalDays} day${totalDays === 1 ? '' : 's'} ago`;
 }
 
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const toRad = (degrees) => (degrees * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function renderActiveBusSessions(routeLabel, sessionRows) {
+  if (!activeSessionsContainer || !activeSessionsList || !activeSessionsMessage) {
+    return;
+  }
+
+  activeBusSessions = Array.isArray(sessionRows) ? sessionRows : [];
+  activeSessionsList.innerHTML = '';
+  activeSessionsContainer.hidden = false;
+
+  if (!activeBusSessions.length) {
+    activeSessionsMessage.textContent = routeLabel || 'No active buses currently sharing live for this route.';
+    return;
+  }
+
+  activeSessionsMessage.textContent = routeLabel || 'Select a specific bus to track.';
+
+  activeBusSessions.forEach((session) => {
+    const item = document.createElement('li');
+    item.className = 'session-item';
+    item.dataset.busCode = session.bus_code;
+    item.dataset.busNumber = session.bus_number;
+    item.innerHTML = `
+      <button type="button" class="session-button" data-bus-code="${session.bus_code}" data-bus-number="${session.bus_number}">
+        Bus ${session.bus_number}-${session.bus_code}
+        <span class="session-meta">${formatTimeAgo(session.updated_at)}${session.distanceKm != null ? ` · ${session.distanceKm.toFixed(1)} km away` : ''}</span>
+      </button>
+    `;
+
+    activeSessionsList.appendChild(item);
+  });
+}
+
+function loadActiveBusSessions(busNumber, routeLabel) {
+  if (!window.supabaseHelpers) {
+    renderActiveBusSessions('Live session lookup is unavailable right now.', []);
+    return;
+  }
+
+  window.supabaseHelpers
+    .getActiveBusSharesForRoute(busNumber)
+    .then(({ data, error }) => {
+      if (error) {
+        console.error('Failed to load active bus sessions', error);
+        renderActiveBusSessions('Could not load active buses for this route.', []);
+        return;
+      }
+
+      const activeRows = Array.isArray(data) ? data : [];
+      renderActiveBusSessions(`Active buses on route ${busNumber}`, activeRows);
+
+      if (activeRows.length === 1) {
+        selectActiveBusSession(busNumber, activeRows[0].bus_code);
+      }
+    })
+    .catch((error) => {
+      console.error('Failed to load active bus sessions', error);
+      renderActiveBusSessions('Could not load active buses for this route.', []);
+    });
+}
+
+async function loadNearbyBusSessions(latitude, longitude) {
+  if (!window.supabaseHelpers) {
+    throw new Error('Supabase helpers are not available.');
+  }
+
+  const { data, error } = await window.supabaseHelpers.getActiveBusLocationShares();
+  if (error) {
+    throw error;
+  }
+
+  const activeRows = Array.isArray(data) ? data : [];
+  const nearbyRows = activeRows
+    .map((row) => ({
+      ...row,
+      distanceKm: getDistanceKm(latitude, longitude, row.latitude, row.longitude)
+    }))
+    .filter((row) => row.distanceKm != null && row.distanceKm <= 10)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  resultTitle.textContent = 'Nearby active buses';
+  resultNumber.textContent = '-';
+  resultRoute.textContent = '-';
+  resultStart.textContent = '-';
+  resultDestination.textContent = '-';
+  resultStatus.textContent = '-';
+  resultSessionCode.textContent = '-';
+  resultStops.innerHTML = '';
+  resultCard.hidden = false;
+  mapWrapper.hidden = false;
+
+  if (!nearbyRows.length) {
+    renderActiveBusSessions('No active buses were found near your location.', []);
+    return;
+  }
+
+  renderActiveBusSessions('Nearby active buses', nearbyRows);
+  selectActiveBusSession(nearbyRows[0].bus_number, nearbyRows[0].bus_code);
+}
+
+function selectActiveBusSession(busNumber, busCode) {
+  if (!busNumber || !busCode) {
+    return;
+  }
+
+  currentBusSessionCode = busCode;
+  resultSessionCode.textContent = busCode;
+  resultNumber.textContent = busNumber;
+  startRealtimeForBus(busNumber, busCode);
+
+  if (activeSessionsList) {
+    Array.from(activeSessionsList.querySelectorAll('.session-button')).forEach((button) => {
+      button.classList.toggle('selected', button.dataset.busCode === busCode);
+    });
+  }
+}
+
+function clearActiveBusSessions() {
+  activeBusSessions = [];
+  if (activeSessionsList) {
+    activeSessionsList.innerHTML = '';
+  }
+  if (activeSessionsContainer) {
+    activeSessionsContainer.hidden = true;
+  }
+}
+
+function generateBusSessionCode(busNumber) {
+  const suffixChars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let suffix = '';
+  for (let i = 0; i < 4; i += 1) {
+    suffix += suffixChars.charAt(Math.floor(Math.random() * suffixChars.length));
+  }
+  return `${busNumber}-${suffix}`;
+}
+
 function updateRelativeTimestampText(element, timestamp, prefix = 'Updated ') {
   if (!element) {
     return;
@@ -379,6 +535,10 @@ function stopLocationSharing(message = 'Location sharing stopped.') {
 
   lastSavedCoordinates = null;
   lastSavedBusNumber = null;
+  currentBusSessionCode = null;
+  if (resultSessionCode) {
+    resultSessionCode.textContent = '-';
+  }
 
   locationPanel.hidden = false;
   locationStatusText.textContent = message;
@@ -407,11 +567,16 @@ function getCoordinateKey(latitude, longitude) {
   return `${Number(latitude.toFixed(6))},${Number(longitude.toFixed(6))}`;
 }
 
-async function saveLocationToSupabase(latitude, longitude, busNumber = currentBusNumber) {
+async function saveLocationToSupabase(latitude, longitude, busNumber = currentBusNumber, busCode = currentBusSessionCode) {
   const selectedBusNumber = (busNumber || currentBusNumber || resultNumber.textContent.trim()).trim();
+  const selectedBusCode = (busCode || currentBusSessionCode || resultSessionCode?.textContent?.trim()).trim();
 
   if (!selectedBusNumber) {
     throw new Error('No bus selected.');
+  }
+
+  if (!selectedBusCode) {
+    throw new Error('No bus session code available. Start sharing again to create one.');
   }
 
   if (!window.supabaseHelpers) {
@@ -419,13 +584,18 @@ async function saveLocationToSupabase(latitude, longitude, busNumber = currentBu
   }
 
   currentBusNumber = selectedBusNumber;
-  const coordinateKey = getCoordinateKey(latitude, longitude);
+  currentBusSessionCode = selectedBusCode;
+  if (resultSessionCode) {
+    resultSessionCode.textContent = selectedBusCode;
+  }
 
+  const coordinateKey = getCoordinateKey(latitude, longitude);
   const selectedDuration = Number(timerSelect.value);
   const expiresAt = getExpiresAt(selectedDuration);
 
   console.log('GPS location received and preparing to save to Supabase', {
     busNumber: selectedBusNumber,
+    busCode: selectedBusCode,
     latitude,
     longitude,
     expiresAt
@@ -433,6 +603,7 @@ async function saveLocationToSupabase(latitude, longitude, busNumber = currentBu
 
   await window.supabaseHelpers.insertShare({
     busNumber: selectedBusNumber,
+    busCode: selectedBusCode,
     latitude,
     longitude,
     expiresAt
@@ -442,6 +613,7 @@ async function saveLocationToSupabase(latitude, longitude, busNumber = currentBu
   lastSavedBusNumber = selectedBusNumber;
   console.log('GPS location successfully saved to Supabase', {
     busNumber: selectedBusNumber,
+    busCode: selectedBusCode,
     latitude,
     longitude
   });
@@ -507,6 +679,13 @@ function startLocationSharing() {
   if (!currentBusNumber) {
     stopLocationSharing('Select a bus first.');
     return;
+  }
+
+  if (!currentBusSessionCode) {
+    currentBusSessionCode = generateBusSessionCode(currentBusNumber);
+    if (resultSessionCode) {
+      resultSessionCode.textContent = currentBusSessionCode;
+    }
   }
 
   if (watchId !== null) {
@@ -614,6 +793,7 @@ function stopRealtimeSubscription() {
     realtimeSubscription = null;
   }
   currentRealtimeBusNumber = null;
+  currentRealtimeBusCode = null;
 }
 
 function formatIndianTime(value) {
@@ -666,6 +846,13 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   lastSeenBusUpdatedAt = incomingUpdatedAt;
   liveBusUpdatedAt = row.updated_at;
 
+  if (row.bus_code) {
+    currentBusSessionCode = row.bus_code;
+    if (resultSessionCode) {
+      resultSessionCode.textContent = row.bus_code;
+    }
+  }
+
   const currentPosition = [row.latitude, row.longitude];
   const markerAlreadyExists = Boolean(liveBusMarker);
 
@@ -686,7 +873,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   }
 }
 
-async function startRealtimeForBus(busNumber) {
+async function startRealtimeForBus(busNumber, busCode = null) {
   stopRealtimeSubscription();
   activeBusSearch += 1;
   const thisSearchId = activeBusSearch;
@@ -695,12 +882,14 @@ async function startRealtimeForBus(busNumber) {
   const liveMessage = document.getElementById('liveLocationMessage');
 
   if (!window.supabaseHelpers || !window.supabaseClient) {
-    liveMessage.textContent = 'Live location lookup is unavailable right now.';
+    if (liveMessage) {
+      liveMessage.textContent = 'Live location lookup is unavailable right now.';
+    }
     return;
   }
 
   try {
-    const { data, error } = await window.supabaseHelpers.getLatestActiveBusLocation(busNumber);
+    const { data, error } = await window.supabaseHelpers.getLatestActiveBusLocation(busNumber, busCode);
 
     if (thisSearchId !== activeBusSearch) {
       return;
@@ -712,14 +901,18 @@ async function startRealtimeForBus(busNumber) {
 
     if (!data) {
       clearLiveBusMarker();
-      liveMessage.textContent = 'No live location available for this bus.';
+      if (liveMessage) {
+        liveMessage.textContent = 'No live location available for this bus.';
+      }
     } else {
       await updateLiveBusLocationFromRow(data, liveMessage);
     }
   } catch (error) {
     if (thisSearchId === activeBusSearch) {
       clearLiveBusMarker();
-      liveMessage.textContent = 'Could not load the live location right now.';
+      if (liveMessage) {
+        liveMessage.textContent = 'Could not load the live location right now.';
+      }
     }
   }
 
@@ -728,7 +921,11 @@ async function startRealtimeForBus(busNumber) {
   }
 
   currentRealtimeBusNumber = busNumber;
-  realtimeSubscription = window.supabaseClient.channel(`bus-${busNumber}`);
+  currentRealtimeBusCode = busCode;
+  const channelName = busCode ? `bus-${busNumber}-${busCode}` : `bus-${busNumber}`;
+  realtimeSubscription = window.supabaseClient.channel(channelName);
+
+  const filter = busCode ? `bus_code=eq.${busCode}` : `bus_number=eq.${busNumber}`;
 
   realtimeSubscription.on(
     'postgres_changes',
@@ -736,11 +933,15 @@ async function startRealtimeForBus(busNumber) {
       event: '*',
       schema: 'public',
       table: 'bus_location_shares',
-      filter: `bus_number=eq.${busNumber}`
+      filter
     },
     (payload) => {
       const row = payload.new || payload.old || payload;
       if (!row || row.bus_number !== busNumber) {
+        return;
+      }
+
+      if (busCode && row.bus_code !== busCode) {
         return;
       }
 
@@ -753,7 +954,7 @@ async function startRealtimeForBus(busNumber) {
 
   realtimeSubscription.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
-      console.log(`Realtime subscribed for bus ${busNumber}`);
+      console.log(`Realtime subscribed for bus ${busNumber}${busCode ? ` session ${busCode}` : ''}`);
     }
   });
 }
@@ -764,6 +965,7 @@ async function showBusDetails(bus) {
   if (!normalizedBus) {
     resultCard.hidden = true;
     mapWrapper.hidden = true;
+    activeSessionsContainer.hidden = true;
     searchMessage.textContent = 'Bus not found.';
     return;
   }
@@ -774,6 +976,7 @@ async function showBusDetails(bus) {
   resultStart.textContent = normalizedBus.startingPoint;
   resultDestination.textContent = normalizedBus.destination;
   resultStatus.textContent = normalizedBus.status;
+  resultSessionCode.textContent = currentBusSessionCode || '-';
   currentBusNumber = normalizedBus.busNumber;
   currentBusRoute = normalizedBus.routeName;
 
@@ -795,13 +998,14 @@ async function showBusDetails(bus) {
 
   resultCard.hidden = false;
   mapWrapper.hidden = false;
+  activeSessionsContainer.hidden = true;
 
   if (map) {
     map.setView(defaultMapCenter, 13);
     setTimeout(() => map.invalidateSize(), 100);
   }
 
-  startRealtimeForBus(normalizedBus.busNumber);
+  await loadActiveBusSessions(normalizedBus.busNumber, normalizedBus.routeName);
 }
 
 searchForm.addEventListener('submit', async (event) => {
@@ -814,6 +1018,7 @@ searchForm.addEventListener('submit', async (event) => {
     searchMessage.textContent = 'Please enter a bus number to continue.';
     resultCard.hidden = true;
     mapWrapper.hidden = true;
+    activeSessionsContainer.hidden = true;
     return;
   }
 
@@ -822,6 +1027,7 @@ searchForm.addEventListener('submit', async (event) => {
     clearLiveBusMarker();
     resultCard.hidden = true;
     mapWrapper.hidden = true;
+    activeSessionsContainer.hidden = true;
     searchMessage.textContent = 'Bus search is unavailable right now.';
     return;
   }
@@ -838,6 +1044,7 @@ searchForm.addEventListener('submit', async (event) => {
       clearLiveBusMarker();
       resultCard.hidden = true;
       mapWrapper.hidden = true;
+      activeSessionsContainer.hidden = true;
       searchMessage.textContent = 'Bus not found.';
       return;
     }
@@ -849,6 +1056,7 @@ searchForm.addEventListener('submit', async (event) => {
       clearLiveBusMarker();
       resultCard.hidden = true;
       mapWrapper.hidden = true;
+      activeSessionsContainer.hidden = true;
       searchMessage.textContent = 'Bus not found.';
       return;
     }
@@ -861,8 +1069,49 @@ searchForm.addEventListener('submit', async (event) => {
     clearLiveBusMarker();
     resultCard.hidden = true;
     mapWrapper.hidden = true;
+    activeSessionsContainer.hidden = true;
     searchMessage.textContent = 'Bus not found.';
   }
+});
+
+activeSessionsList.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-bus-code][data-bus-number]');
+  if (!button) {
+    return;
+  }
+
+  const busCode = button.dataset.busCode;
+  const busNumber = button.dataset.busNumber;
+  selectActiveBusSession(busNumber, busCode);
+});
+
+findNearbyBtn.addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    searchMessage.textContent = 'Location is not available in this browser.';
+    return;
+  }
+
+  searchMessage.textContent = 'Looking for nearby buses...';
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        await loadNearbyBusSessions(position.coords.latitude, position.coords.longitude);
+        searchMessage.textContent = 'Nearby buses loaded.';
+      } catch (error) {
+        console.error('Nearby search failed', error);
+        searchMessage.textContent = 'Could not find nearby buses right now.';
+      }
+    },
+    (error) => {
+      console.error('Geolocation failed', error);
+      searchMessage.textContent = 'Could not get your location to find nearby buses.';
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 8000
+    }
+  );
 });
 
 shareLocationBtn.addEventListener('click', () => {
@@ -874,10 +1123,20 @@ shareLocationBtn.addEventListener('click', () => {
     return;
   }
 
+  const sessionCode = generateBusSessionCode(busNumber);
+  currentBusSessionCode = sessionCode;
+  if (resultSessionCode) {
+    resultSessionCode.textContent = sessionCode;
+  }
+
   const routeLabel = routeName && routeName !== '-' ? routeName : 'selected route';
-  const confirmText = `You are about to share location for Bus ${busNumber} - ${routeLabel}. Confirm?`;
+  const confirmText = `You are about to share location for Bus ${sessionCode} - ${routeLabel}. Confirm?`;
 
   if (!window.confirm(confirmText)) {
+    currentBusSessionCode = null;
+    if (resultSessionCode) {
+      resultSessionCode.textContent = '-';
+    }
     return;
   }
 
