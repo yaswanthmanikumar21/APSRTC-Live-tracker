@@ -34,10 +34,15 @@ let activeBusSearch = 0;
 let lastSavedCoordinates = null;
 let lastSavedBusNumber = null;
 let lastGpsCallbackTime = 0;
+let lastLocationUpdateAt = null;
 let lastSeenBusUpdatedAt = null;
 let isSharingActive = false;
 let realtimeSubscription = null;
 let currentRealtimeBusNumber = null;
+let senderLocationTicker = null;
+let busLocationTicker = null;
+let liveBusUpdatedAt = null;
+let gpsRefreshInterval = null;
 let wakeLockSentinel = null;
 let gpsDebugStatus = 'waiting';
 let gpsDebugCallbackTime = 'none';
@@ -215,8 +220,136 @@ async function loadBusCatalog() {
   }
 }
 
+function clearSenderLocationTicker() {
+  if (senderLocationTicker) {
+    clearInterval(senderLocationTicker);
+    senderLocationTicker = null;
+  }
+}
+
+function clearBusLocationTicker() {
+  if (busLocationTicker) {
+    clearInterval(busLocationTicker);
+    busLocationTicker = null;
+  }
+}
+
+function clearGpsRefreshInterval() {
+  if (gpsRefreshInterval) {
+    clearInterval(gpsRefreshInterval);
+    gpsRefreshInterval = null;
+  }
+}
+
+function formatTimeAgo(timestamp) {
+  if (!timestamp) {
+    return 'just now';
+  }
+
+  const parsedTime = new Date(timestamp).getTime();
+  if (Number.isNaN(parsedTime)) {
+    return 'just now';
+  }
+
+  const diffMs = Math.max(0, Date.now() - parsedTime);
+  const totalSeconds = Math.floor(diffMs / 1000);
+
+  if (totalSeconds < 60) {
+    return `${totalSeconds} second${totalSeconds === 1 ? '' : 's'} ago`;
+  }
+
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 60) {
+    return `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'} ago`;
+  }
+
+  const totalHours = Math.floor(totalMinutes / 60);
+  if (totalHours < 24) {
+    return `${totalHours} hour${totalHours === 1 ? '' : 's'} ago`;
+  }
+
+  const totalDays = Math.floor(totalHours / 24);
+  return `${totalDays} day${totalDays === 1 ? '' : 's'} ago`;
+}
+
+function updateRelativeTimestampText(element, timestamp, prefix = 'Updated ') {
+  if (!element) {
+    return;
+  }
+
+  if (!timestamp) {
+    element.textContent = `${prefix}just now`;
+    return;
+  }
+
+  element.textContent = `${prefix}${formatTimeAgo(timestamp)}`;
+}
+
+function startLocationUpdateTicker() {
+  clearSenderLocationTicker();
+
+  if (!lastUpdateValue) {
+    return;
+  }
+
+  const tick = () => {
+    updateRelativeTimestampText(lastUpdateValue, lastLocationUpdateAt, 'Updated ');
+  };
+
+  tick();
+  senderLocationTicker = window.setInterval(tick, 1000);
+}
+
+function startBusLocationTicker(liveMessageElement, timestamp) {
+  clearBusLocationTicker();
+
+  if (!liveMessageElement) {
+    return;
+  }
+
+  const tick = () => {
+    const currentTimestamp = timestamp || liveBusUpdatedAt;
+    if (!currentTimestamp) {
+      liveMessageElement.textContent = 'Live bus location found. Updated just now';
+      return;
+    }
+
+    updateRelativeTimestampText(liveMessageElement, currentTimestamp, 'Live bus location found. Updated ');
+  };
+
+  tick();
+  busLocationTicker = window.setInterval(tick, 1000);
+}
+
+function refreshGpsLocation() {
+  if (!navigator.geolocation || !isSharingActive) {
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => updateUserLocation(position),
+    (error) => {
+      console.warn('Background GPS refresh failed', error);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 8000,
+      maximumAge: 0
+    }
+  );
+}
+
+function startGpsRefreshLoop() {
+  clearGpsRefreshInterval();
+  refreshGpsLocation();
+  gpsRefreshInterval = window.setInterval(refreshGpsLocation, 15000);
+}
+
 function stopLocationSharing(message = 'Location sharing stopped.') {
   isSharingActive = false;
+  clearGpsRefreshInterval();
+  clearSenderLocationTicker();
+  lastLocationUpdateAt = null;
 
   if (watchId !== null) {
     navigator.geolocation.clearWatch(watchId);
@@ -323,7 +456,8 @@ function updateUserLocation(position) {
 
   latitudeValue.textContent = latitude.toFixed(6);
   longitudeValue.textContent = longitude.toFixed(6);
-  lastUpdateValue.textContent = formatIndianTime(new Date(positionTimestamp).toISOString());
+  lastLocationUpdateAt = positionTimestamp;
+  startLocationUpdateTicker();
   locationStatusText.textContent = 'Location sharing is active';
   locationPanel.hidden = false;
   stopSharingBtn.hidden = false;
@@ -438,6 +572,9 @@ function clearLiveBusMarker() {
 }
 
 function stopRealtimeSubscription() {
+  clearBusLocationTicker();
+  liveBusUpdatedAt = null;
+
   if (realtimeSubscription) {
     try {
       window.supabaseClient.realtime.removeChannel(realtimeSubscription);
@@ -497,6 +634,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   }
 
   lastSeenBusUpdatedAt = incomingUpdatedAt;
+  liveBusUpdatedAt = row.updated_at;
 
   const currentPosition = [row.latitude, row.longitude];
   const markerAlreadyExists = Boolean(liveBusMarker);
@@ -508,8 +646,9 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
     liveBusMarker.setLatLng(currentPosition);
   }
 
-  const lastUpdated = formatIndianTime(row.updated_at);
-  liveMessage.textContent = `Live bus location found. Last updated: ${lastUpdated}`;
+  if (liveMessage) {
+    startBusLocationTicker(liveMessage, liveBusUpdatedAt);
+  }
 
   if (map && !markerAlreadyExists) {
     map.setView(currentPosition);
