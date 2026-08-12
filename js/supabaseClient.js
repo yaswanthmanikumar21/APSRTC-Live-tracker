@@ -28,7 +28,10 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
       console.log('Preparing bus location update payload', payload);
 
-      const selector = busCode ? window.supabaseClient.from('bus_location_shares').eq('bus_code', busCode) : window.supabaseClient.from('bus_location_shares').eq('bus_number', busNumber);
+      const baseQuery = window.supabaseClient.from('bus_location_shares');
+      const selector = busCode
+        ? baseQuery.eq('bus_code', busCode)
+        : baseQuery.eq('bus_number', busNumber);
 
       try {
         const { data: existingRows, error: selectError } = await selector.select('id').limit(1);
@@ -37,10 +40,12 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         }
 
         if (existingRows && existingRows.length > 0) {
-          const updateSelector = window.supabaseClient.from('bus_location_shares');
-          const query = busCode ? updateSelector.eq('bus_code', busCode) : updateSelector.eq('bus_number', busNumber);
+          const updateQuery = window.supabaseClient.from('bus_location_shares');
+          const targetQuery = busCode
+            ? updateQuery.eq('bus_code', busCode)
+            : updateQuery.eq('bus_number', busNumber);
 
-          const { data, error } = await query
+          const { data, error } = await targetQuery
             .update({
               bus_number: busNumber,
               bus_code: busCode || null,
@@ -81,10 +86,12 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
           throw error;
         }
 
-        const updateSelector = window.supabaseClient.from('bus_location_shares');
-        const query = busCode ? updateSelector.eq('bus_code', busCode) : updateSelector.eq('bus_number', busNumber);
+        const updateQuery = window.supabaseClient.from('bus_location_shares');
+        const targetQuery = busCode
+          ? updateQuery.eq('bus_code', busCode)
+          : updateQuery.eq('bus_number', busNumber);
 
-        const { data, error: updateError } = await query
+        const { data, error: updateError } = await targetQuery
           .update({
             bus_number: busNumber,
             bus_code: busCode || null,
