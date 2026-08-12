@@ -1,32 +1,4 @@
-const sampleBuses = [
-  {
-    busNumber: '300K',
-    routeName: 'Madhapur - Secunderabad',
-    startingPoint: 'Madhapur',
-    destination: 'Secunderabad',
-    stops: ['Madhapur', 'Hitech City', 'Ameerpet', 'Punjagutta', 'Secunderabad'],
-    status: 'Not being tracked',
-    currentLocation: null
-  },
-  {
-    busNumber: '999',
-    routeName: 'KPHB - Jubilee Hills',
-    startingPoint: 'KPHB',
-    destination: 'Jubilee Hills',
-    stops: ['KPHB', 'Kukatpally', 'Ameerpet', 'Banjara Hills', 'Jubilee Hills'],
-    status: 'Not being tracked',
-    currentLocation: null
-  },
-  {
-    busNumber: '900K',
-    routeName: 'Ameerpet - Hitech City',
-    startingPoint: 'Ameerpet',
-    destination: 'Hitech City',
-    stops: ['Ameerpet', 'Madhapur', 'Hitech City'],
-    status: 'Not being tracked',
-    currentLocation: null
-  }
-];
+let busCatalog = [];
 
 const busList = document.getElementById('busList');
 const searchForm = document.getElementById('searchForm');
@@ -50,9 +22,8 @@ const longitudeValue = document.getElementById('longitudeValue');
 const lastUpdateValue = document.getElementById('lastUpdateValue');
 const gpsDebugText = document.getElementById('gpsDebugText');
 
-const sampleCoordinates = [17.6868, 83.2185];
+const defaultMapCenter = [17.6868, 83.2185];
 let map;
-let sampleMarker;
 let userLocationMarker;
 let liveBusMarker;
 let watchId = null;
@@ -110,14 +81,11 @@ function setGpsDebugState(partialState) {
 }
 
 function initMap() {
-  map = L.map('map').setView(sampleCoordinates, 13);
+  map = L.map('map').setView(defaultMapCenter, 13);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
-
-  sampleMarker = L.marker(sampleCoordinates).addTo(map);
-  sampleMarker.bindPopup('SAMPLE LOCATION<br>Not a real APSRTC bus location.');
 }
 
 async function requestWakeLock() {
@@ -151,6 +119,35 @@ function releaseWakeLock() {
   wakeLockSentinel = null;
 }
 
+function getActiveBusCatalog() {
+  return Array.isArray(busCatalog) ? busCatalog : [];
+}
+
+function normalizeBusRecord(bus) {
+  if (!bus) {
+    return null;
+  }
+
+  const busNumber = bus.bus_number ?? bus.busNumber ?? bus.bus_code ?? '';
+  const route = bus.route ?? bus.routeName ?? '';
+  const startingPoint = bus.starting_point ?? bus.startingPoint ?? '';
+  const destination = bus.destination ?? '';
+  const stops = Array.isArray(bus.stops)
+    ? bus.stops
+    : typeof bus.stops === 'string'
+      ? bus.stops.split(',').map((stop) => stop.trim()).filter(Boolean)
+      : [];
+
+  return {
+    busNumber: String(busNumber).trim(),
+    routeName: String(route || 'Not available').trim(),
+    startingPoint: String(startingPoint || 'Not available').trim(),
+    destination: String(destination || 'Not available').trim(),
+    stops: stops.map((stop) => String(stop).trim()).filter(Boolean),
+    status: bus.active === false ? 'Inactive' : 'Active'
+  };
+}
+
 function renderBusCards() {
   busList.innerHTML = '';
 
@@ -180,9 +177,9 @@ function renderBusCards() {
 
 async function loadBusCatalog() {
   if (!window.supabaseHelpers) {
-    busCatalog = sampleBuses.map((bus) => normalizeBusRecord(bus)).filter(Boolean);
+    busCatalog = [];
     renderBusCards();
-    searchMessage.textContent = 'Bus catalog is unavailable right now. Showing sample bus data.';
+    searchMessage.textContent = 'Bus catalog is unavailable right now.';
     return;
   }
 
@@ -204,15 +201,15 @@ async function loadBusCatalog() {
       renderBusCards();
       searchMessage.textContent = `Loaded ${normalizedBuses.length} buses from the live catalog.`;
     } else {
-      busCatalog = sampleBuses.map((bus) => normalizeBusRecord(bus)).filter(Boolean);
+      busCatalog = [];
       renderBusCards();
-      searchMessage.textContent = 'No bus records were returned from Supabase. Showing sample data.';
+      searchMessage.textContent = 'No bus records were returned from Supabase.';
     }
   } catch (error) {
     console.error('Failed to load buses from Supabase', error);
-    busCatalog = sampleBuses.map((bus) => normalizeBusRecord(bus)).filter(Boolean);
+    busCatalog = [];
     renderBusCards();
-    searchMessage.textContent = 'Unable to load the bus catalog right now. Showing sample data.';
+    searchMessage.textContent = 'Unable to load the bus catalog right now.';
   }
 }
 
@@ -583,32 +580,47 @@ async function startRealtimeForBus(busNumber) {
 }
 
 async function showBusDetails(bus) {
-  resultTitle.textContent = `Bus ${bus.busNumber}`;
-  resultNumber.textContent = bus.busNumber;
-  resultRoute.textContent = bus.routeName;
-  resultStart.textContent = bus.startingPoint;
-  resultDestination.textContent = bus.destination;
-  resultStatus.textContent = bus.status;
+  const normalizedBus = normalizeBusRecord(bus);
+
+  if (!normalizedBus) {
+    resultCard.hidden = true;
+    mapWrapper.hidden = true;
+    searchMessage.textContent = 'Bus not found.';
+    return;
+  }
+
+  resultTitle.textContent = `Bus ${normalizedBus.busNumber}`;
+  resultNumber.textContent = normalizedBus.busNumber;
+  resultRoute.textContent = normalizedBus.routeName;
+  resultStart.textContent = normalizedBus.startingPoint;
+  resultDestination.textContent = normalizedBus.destination;
+  resultStatus.textContent = normalizedBus.status;
 
   resultStops.innerHTML = '';
-  bus.stops.forEach((stop) => {
+
+  if (!normalizedBus.stops.length) {
     const item = document.createElement('li');
     item.className = 'stop-item';
-    item.innerHTML = `${stop} <span class="sample-pill">SAMPLE DATA</span>`;
+    item.textContent = 'No stops available.';
     resultStops.appendChild(item);
-  });
+  } else {
+    normalizedBus.stops.forEach((stop) => {
+      const item = document.createElement('li');
+      item.className = 'stop-item';
+      item.textContent = stop;
+      resultStops.appendChild(item);
+    });
+  }
 
   resultCard.hidden = false;
   mapWrapper.hidden = false;
 
   if (map) {
-    map.setView(sampleCoordinates, 13);
-    sampleMarker.setLatLng(sampleCoordinates);
-    sampleMarker.bindPopup('SAMPLE LOCATION<br>Not a real APSRTC bus location.');
+    map.setView(defaultMapCenter, 13);
     setTimeout(() => map.invalidateSize(), 100);
   }
 
-  startRealtimeForBus(bus.busNumber);
+  startRealtimeForBus(normalizedBus.busNumber);
 }
 
 searchForm.addEventListener('submit', async (event) => {
@@ -624,18 +636,51 @@ searchForm.addEventListener('submit', async (event) => {
     return;
   }
 
-  const availableBuses = getActiveBusCatalog();
-  const match = availableBuses.find((bus) => String(bus.busNumber).toLowerCase() === query.toLowerCase());
-
-  if (match) {
-    await showBusDetails(match);
-    searchMessage.textContent = `Showing details for bus ${match.busNumber}.`;
-  } else {
+  if (!window.supabaseHelpers) {
     stopRealtimeSubscription();
     clearLiveBusMarker();
     resultCard.hidden = true;
     mapWrapper.hidden = true;
-    searchMessage.textContent = `No matching bus found for ${query}. Try a bus number from the live catalog.`;
+    searchMessage.textContent = 'Bus search is unavailable right now.';
+    return;
+  }
+
+  try {
+    const { data, error } = await window.supabaseHelpers.getBusByNumber(query);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      stopRealtimeSubscription();
+      clearLiveBusMarker();
+      resultCard.hidden = true;
+      mapWrapper.hidden = true;
+      searchMessage.textContent = 'Bus not found.';
+      return;
+    }
+
+    const foundBus = normalizeBusRecord(data);
+
+    if (!foundBus || !foundBus.busNumber) {
+      stopRealtimeSubscription();
+      clearLiveBusMarker();
+      resultCard.hidden = true;
+      mapWrapper.hidden = true;
+      searchMessage.textContent = 'Bus not found.';
+      return;
+    }
+
+    await showBusDetails(foundBus);
+    searchMessage.textContent = `Showing details for bus ${foundBus.busNumber}.`;
+  } catch (error) {
+    console.error('Bus search failed', error);
+    stopRealtimeSubscription();
+    clearLiveBusMarker();
+    resultCard.hidden = true;
+    mapWrapper.hidden = true;
+    searchMessage.textContent = 'Bus not found.';
   }
 });
 

@@ -69,6 +69,20 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       return { data, error };
     },
 
+    async getBusByNumber(busNumber) {
+      if (!busNumber || !window.supabaseClient) {
+        return { data: null, error: null };
+      }
+
+      const { data, error } = await window.supabaseClient
+        .from('buses')
+        .select('id, bus_number, bus_code, active, route, starting_point, destination, stops')
+        .eq('bus_number', busNumber)
+        .maybeSingle();
+
+      return { data, error };
+    },
+
     async getLatestActiveBusLocation(busNumber) {
       if (!busNumber) {
         return { data: null, error: null };
