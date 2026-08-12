@@ -29,6 +29,7 @@ let liveBusMarker;
 let watchId = null;
 let locationTimer = null;
 let currentBusNumber = null;
+let currentBusRoute = null;
 let activeBusSearch = 0;
 let lastSavedCoordinates = null;
 let lastSavedBusNumber = null;
@@ -274,6 +275,7 @@ async function saveLocationToSupabase(latitude, longitude, busNumber = currentBu
     throw new Error('Supabase helpers are not available.');
   }
 
+  currentBusNumber = selectedBusNumber;
   const coordinateKey = getCoordinateKey(latitude, longitude);
 
   const selectedDuration = Number(timerSelect.value);
@@ -355,6 +357,7 @@ function startLocationSharing() {
 
   const selectedBusFromResult = resultNumber.textContent.trim();
   currentBusNumber = selectedBusFromResult && selectedBusFromResult !== '-' ? selectedBusFromResult : null;
+  currentBusRoute = resultRoute.textContent.trim();
 
   if (!currentBusNumber) {
     stopLocationSharing('Select a bus first.');
@@ -595,6 +598,8 @@ async function showBusDetails(bus) {
   resultStart.textContent = normalizedBus.startingPoint;
   resultDestination.textContent = normalizedBus.destination;
   resultStatus.textContent = normalizedBus.status;
+  currentBusNumber = normalizedBus.busNumber;
+  currentBusRoute = normalizedBus.routeName;
 
   resultStops.innerHTML = '';
 
@@ -684,7 +689,25 @@ searchForm.addEventListener('submit', async (event) => {
   }
 });
 
-shareLocationBtn.addEventListener('click', startLocationSharing);
+shareLocationBtn.addEventListener('click', () => {
+  const busNumber = (resultNumber.textContent || '').trim();
+  const routeName = (resultRoute.textContent || '').trim();
+
+  if (!busNumber || busNumber === '-') {
+    stopLocationSharing('Select a bus before sharing location.');
+    return;
+  }
+
+  const routeLabel = routeName && routeName !== '-' ? routeName : 'selected route';
+  const confirmText = `You are about to share location for Bus ${busNumber} - ${routeLabel}. Confirm?`;
+
+  if (!window.confirm(confirmText)) {
+    return;
+  }
+
+  startLocationSharing();
+});
+
 stopSharingBtn.addEventListener('click', () => {
   stopLocationSharing('Location sharing stopped.');
 });
