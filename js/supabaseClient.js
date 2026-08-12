@@ -27,18 +27,60 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
       console.log('Preparing bus location update payload', payload);
 
-      const { data: existingRows, error: selectError } = await window.supabaseClient
-        .from('bus_location_shares')
-        .select('id')
-        .eq('bus_number', busNumber)
-        .limit(1);
+      try {
+        const { data: existingRows, error: selectError } = await window.supabaseClient
+          .from('bus_location_shares')
+          .select('id')
+          .eq('bus_number', busNumber)
+          .limit(1);
 
-      if (selectError) {
-        throw selectError;
-      }
+        if (selectError) {
+          throw selectError;
+        }
 
-      if (existingRows && existingRows.length > 0) {
+        if (existingRows && existingRows.length > 0) {
+          const { data, error } = await window.supabaseClient
+            .from('bus_location_shares')
+            .update({
+              latitude,
+              longitude,
+              updated_at: payload.updated_at,
+              expires_at: expiresAt
+            })
+            .eq('bus_number', busNumber)
+            .select('*')
+            .single();
+
+          if (error) {
+            throw error;
+          }
+
+          return data;
+        }
+
         const { data, error } = await window.supabaseClient
+          .from('bus_location_shares')
+          .insert(payload)
+          .select('*')
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        return data;
+      } catch (error) {
+        const isDuplicateKeyError =
+          error?.code === '23505' ||
+          error?.details?.includes('duplicate key') ||
+          error?.message?.includes('duplicate key') ||
+          error?.message?.includes('23505');
+
+        if (!isDuplicateKeyError) {
+          throw error;
+        }
+
+        const { data, error: updateError } = await window.supabaseClient
           .from('bus_location_shares')
           .update({
             latitude,
@@ -50,24 +92,12 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
           .select('*')
           .single();
 
-        if (error) {
-          throw error;
+        if (updateError) {
+          throw updateError;
         }
 
         return data;
       }
-
-      const { data, error } = await window.supabaseClient
-        .from('bus_location_shares')
-        .insert(payload)
-        .select('*')
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      return data;
     },
 
     async getBuses() {
