@@ -43,6 +43,7 @@ let senderLocationTicker = null;
 let busLocationTicker = null;
 let liveBusUpdatedAt = null;
 let gpsRefreshInterval = null;
+let forcedRefreshInterval = null;
 let wakeLockSentinel = null;
 let gpsDebugStatus = 'waiting';
 let gpsDebugCallbackTime = 'none';
@@ -241,6 +242,13 @@ function clearGpsRefreshInterval() {
   }
 }
 
+function clearForcedRefreshInterval() {
+  if (forcedRefreshInterval) {
+    clearInterval(forcedRefreshInterval);
+    forcedRefreshInterval = null;
+  }
+}
+
 function formatTimeAgo(timestamp) {
   if (!timestamp) {
     return 'just now';
@@ -348,6 +356,7 @@ function startGpsRefreshLoop() {
 function stopLocationSharing(message = 'Location sharing stopped.') {
   isSharingActive = false;
   clearGpsRefreshInterval();
+  clearForcedRefreshInterval();
   clearSenderLocationTicker();
   lastLocationUpdateAt = null;
 
@@ -504,12 +513,33 @@ function startLocationSharing() {
     navigator.geolocation.clearWatch(watchId);
   }
 
+  clearForcedRefreshInterval();
+
   if (locationTimer) {
     clearTimeout(locationTimer);
   }
 
   isSharingActive = true;
   const selectedDuration = Number(timerSelect.value);
+
+  forcedRefreshInterval = window.setInterval(() => {
+    if (!isSharingActive || !navigator.geolocation) {
+      clearForcedRefreshInterval();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => updateUserLocation(position),
+      (error) => {
+        console.warn('Forced GPS refresh failed', error);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 8000
+      }
+    );
+  }, 15000);
 
   locationPanel.hidden = false;
   locationStatusText.textContent = 'Requesting your location...';
