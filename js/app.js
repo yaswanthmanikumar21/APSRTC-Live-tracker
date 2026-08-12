@@ -5,6 +5,15 @@ let activeBusSessions = [];
 const busList = document.getElementById('busList');
 const searchForm = document.getElementById('searchForm');
 const findNearbyBtn = document.getElementById('findNearbyBtn');
+const toggleAddBusBtn = document.getElementById('toggleAddBusBtn');
+const addBusSection = document.getElementById('addBusSection');
+const addBusForm = document.getElementById('addBusForm');
+const addBusMessage = document.getElementById('addBusMessage');
+const newBusNumber = document.getElementById('newBusNumber');
+const newBusRoute = document.getElementById('newBusRoute');
+const newBusStart = document.getElementById('newBusStart');
+const newBusDestination = document.getElementById('newBusDestination');
+const newBusStops = document.getElementById('newBusStops');
 const searchMessage = document.getElementById('searchMessage');
 const resultCard = document.getElementById('resultCard');
 const resultTitle = document.getElementById('resultTitle');
@@ -137,6 +146,26 @@ function releaseWakeLock() {
 
 function getActiveBusCatalog() {
   return Array.isArray(busCatalog) ? busCatalog : [];
+}
+
+function parseStopsInput(stopsText) {
+  if (!stopsText) {
+    return [];
+  }
+
+  return String(stopsText)
+    .split(',')
+    .map((stop) => stop.trim())
+    .filter(Boolean);
+}
+
+function setAddBusMessage(message, isError = false) {
+  if (!addBusMessage) {
+    return;
+  }
+
+  addBusMessage.textContent = message;
+  addBusMessage.style.color = isError ? '#b00020' : '#006600';
 }
 
 function normalizeBusRecord(bus) {
@@ -1117,6 +1146,62 @@ findNearbyBtn.addEventListener('click', () => {
       timeout: 8000
     }
   );
+});
+
+toggleAddBusBtn.addEventListener('click', () => {
+  if (!addBusSection) {
+    return;
+  }
+
+  addBusSection.hidden = !addBusSection.hidden;
+  if (!addBusSection.hidden) {
+    setAddBusMessage('Fill in the bus details and submit to add a new bus.');
+  } else {
+    setAddBusMessage('');
+  }
+});
+
+addBusForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  if (!window.supabaseHelpers) {
+    setAddBusMessage('Cannot connect to Supabase right now.', true);
+    return;
+  }
+
+  const busNumber = newBusNumber?.value.trim();
+  const route = newBusRoute?.value.trim();
+  const startingPoint = newBusStart?.value.trim();
+  const destination = newBusDestination?.value.trim();
+  const stops = parseStopsInput(newBusStops?.value);
+
+  if (!busNumber || !route || !startingPoint || !destination) {
+    setAddBusMessage('Bus number, route, starting point, and destination are required.', true);
+    return;
+  }
+
+  setAddBusMessage('Adding bus...', false);
+
+  const { data, error } = await window.supabaseHelpers.createBus({
+    busNumber,
+    route,
+    startingPoint,
+    destination,
+    stops
+  });
+
+  if (error) {
+    setAddBusMessage(error.message || 'Could not add bus.', true);
+    return;
+  }
+
+  setAddBusMessage(`Bus ${data.bus_number} added successfully.`, false);
+  newBusNumber.value = '';
+  newBusRoute.value = '';
+  newBusStart.value = '';
+  newBusDestination.value = '';
+  newBusStops.value = '';
+  loadBusCatalog();
 });
 
 shareLocationBtn.addEventListener('click', () => {

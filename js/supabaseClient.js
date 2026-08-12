@@ -129,6 +129,57 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       return { data, error };
     },
 
+    async createBus({ busNumber, route, startingPoint, destination, stops }) {
+      if (!busNumber || !route || !startingPoint || !destination) {
+        return { data: null, error: new Error('Please provide bus number, route, starting point, and destination.') };
+      }
+
+      if (!window.supabaseClient) {
+        return { data: null, error: new Error('Supabase client is not available.') };
+      }
+
+      const normalizedBusNumber = String(busNumber).trim();
+      const normalizedRoute = String(route).trim();
+      const normalizedStartingPoint = String(startingPoint).trim();
+      const normalizedDestination = String(destination).trim();
+      const stopsArray = Array.isArray(stops)
+        ? stops
+        : String(stops || '')
+            .split(',')
+            .map((stop) => stop.trim())
+            .filter(Boolean);
+
+      const { data: existingBuses, error: existingError } = await window.supabaseClient
+        .from('buses')
+        .select('id')
+        .eq('bus_number', normalizedBusNumber)
+        .limit(1);
+
+      if (existingError) {
+        return { data: null, error: existingError };
+      }
+
+      if (existingBuses && existingBuses.length > 0) {
+        return { data: null, error: new Error(`Bus ${normalizedBusNumber} already exists.`) };
+      }
+
+      const { data, error } = await window.supabaseClient
+        .from('buses')
+        .insert({
+          bus_number: normalizedBusNumber,
+          route: normalizedRoute,
+          starting_point: normalizedStartingPoint,
+          destination: normalizedDestination,
+          stops: stopsArray,
+          active: true,
+          bus_code: null
+        })
+        .select('*')
+        .single();
+
+      return { data, error };
+    },
+
     async getBusByNumber(busNumber) {
       if (!busNumber || !window.supabaseClient) {
         return { data: null, error: null };

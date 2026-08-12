@@ -36,7 +36,33 @@
             <button id="findNearbyBtn" type="button" class="nearby-button">
               📍 Use my location
             </button>
+            <button id="toggleAddBusBtn" type="button" class="secondary-button">
+              Add new bus
+            </button>
           </form>
+
+          <section id="addBusSection" class="add-bus-section" hidden>
+            <h3>Add a new bus</h3>
+            <form id="addBusForm" class="add-bus-form">
+              <label for="newBusNumber">Bus number *</label>
+              <input id="newBusNumber" name="newBusNumber" type="text" placeholder="28" required />
+
+              <label for="newBusRoute">Route *</label>
+              <input id="newBusRoute" name="newBusRoute" type="text" placeholder="RK Beach - Simhachalam" required />
+
+              <label for="newBusStart">Starting point *</label>
+              <input id="newBusStart" name="newBusStart" type="text" placeholder="RK Beach" required />
+
+              <label for="newBusDestination">Destination *</label>
+              <input id="newBusDestination" name="newBusDestination" type="text" placeholder="Simhachalam" required />
+
+              <label for="newBusStops">Stops (comma-separated)</label>
+              <input id="newBusStops" name="newBusStops" type="text" placeholder="RK Beach, Waltair, Siripuram" />
+
+              <button type="submit" class="primary-button">Create bus</button>
+            </form>
+            <p id="addBusMessage" class="form-message"></p>
+          </section>
 
           <div id="resultCard" class="result-card" hidden>
             <div class="result-header">
