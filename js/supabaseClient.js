@@ -28,10 +28,9 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
       console.log('Preparing bus location update payload', payload);
 
-      const baseQuery = window.supabaseClient.from('bus_location_shares');
       const selector = busCode
-        ? baseQuery.eq('bus_code', busCode)
-        : baseQuery.eq('bus_number', busNumber);
+        ? window.supabaseClient.from('bus_location_shares').eq('bus_code', busCode)
+        : window.supabaseClient.from('bus_location_shares').eq('bus_number', busNumber);
 
       try {
         const { data: existingRows, error: selectError } = await selector.select('id').limit(1);
@@ -40,10 +39,9 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         }
 
         if (existingRows && existingRows.length > 0) {
-          const updateQuery = window.supabaseClient.from('bus_location_shares');
           const targetQuery = busCode
-            ? updateQuery.eq('bus_code', busCode)
-            : updateQuery.eq('bus_number', busNumber);
+            ? window.supabaseClient.from('bus_location_shares').eq('bus_code', busCode)
+            : window.supabaseClient.from('bus_location_shares').eq('bus_number', busNumber);
 
           const { data, error } = await targetQuery
             .update({
