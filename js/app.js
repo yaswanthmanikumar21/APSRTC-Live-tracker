@@ -33,6 +33,7 @@ let currentBusRoute = null;
 let activeBusSearch = 0;
 let lastSavedCoordinates = null;
 let lastSavedBusNumber = null;
+let lastGpsCallbackTime = 0;
 let lastSeenBusUpdatedAt = null;
 let isSharingActive = false;
 let realtimeSubscription = null;
@@ -343,6 +344,7 @@ function updateUserLocation(position) {
     return;
   }
 
+  lastGpsCallbackTime = Date.now();
   saveLocationToSupabase(latitude, longitude, currentBusNumber).catch((error) => {
     console.error('Supabase insert failed', error);
     locationStatusText.textContent = `Location sharing is active. Supabase save failed: ${error.message}`;
