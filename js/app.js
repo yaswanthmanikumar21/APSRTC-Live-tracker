@@ -888,6 +888,7 @@ async function startRealtimeForBus(busNumber, busCode = null) {
     return;
   }
 
+  console.log('startRealtimeForBus searching live location for', { busNumber, busCode });
   try {
     const { data, error } = await window.supabaseHelpers.getLatestActiveBusLocation(busNumber, busCode);
 
@@ -999,6 +1000,10 @@ async function showBusDetails(bus) {
   resultCard.hidden = false;
   mapWrapper.hidden = false;
   activeSessionsContainer.hidden = true;
+
+  stopRealtimeSubscription();
+  clearLiveBusMarker();
+  clearActiveBusSessions();
 
   if (map) {
     map.setView(defaultMapCenter, 13);

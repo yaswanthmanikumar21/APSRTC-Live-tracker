@@ -149,6 +149,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         return { data: [], error: new Error('A bus number is required to lookup active sessions.') };
       }
 
+      console.log('getActiveBusSharesForRoute searching for bus_number:', busNumber);
       const nowTime = Date.now();
       const { data, error } = await window.supabaseClient
         .from('bus_location_shares')
@@ -208,12 +209,8 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
       const nowTime = Date.now();
       const now = new Date(nowTime).toISOString();
-      console.log('Supabase select query started', {
-        busNumber,
-        busCode,
-        now,
-        query: 'bus_location_shares'
-      });
+      const filterDescription = busCode ? `bus_code=${busCode}` : `bus_number=${busNumber}`;
+      console.log('getLatestActiveBusLocation searching for', { busNumber, busCode, filterDescription });
 
       const query = window.supabaseClient.from('bus_location_shares').select('bus_number, bus_code, latitude, longitude, updated_at, expires_at');
 
