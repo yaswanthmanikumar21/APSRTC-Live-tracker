@@ -414,7 +414,7 @@ function startLocationSharing() {
     },
     {
       enableHighAccuracy: true,
-      timeout: 10000,
+      timeout: 8000,
       maximumAge: 0
     }
   );
