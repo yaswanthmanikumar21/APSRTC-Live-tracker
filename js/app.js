@@ -562,12 +562,13 @@ async function startRealtimeForBus(busNumber) {
   realtimeSubscription.on(
     'postgres_changes',
     {
-      event: 'INSERT',
+      event: '*',
       schema: 'public',
-      table: 'bus_location_shares'
+      table: 'bus_location_shares',
+      filter: `bus_number=eq.${busNumber}`
     },
     (payload) => {
-      const row = payload.new;
+      const row = payload.new || payload.old || payload;
       if (!row || row.bus_number !== busNumber) {
         return;
       }
@@ -579,7 +580,11 @@ async function startRealtimeForBus(busNumber) {
     }
   );
 
-  realtimeSubscription.subscribe();
+  realtimeSubscription.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      console.log(`Realtime subscribed for bus ${busNumber}`);
+    }
+  });
 }
 
 async function showBusDetails(bus) {
@@ -716,6 +721,10 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     requestWakeLock();
   }
+});
+
+window.addEventListener('beforeunload', () => {
+  stopRealtimeSubscription();
 });
 
 initMap();
