@@ -13,8 +13,8 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         throw new Error('A bus number is required before saving location data.');
       }
 
-      if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.includes('YOUR_')) {
-        throw new Error('Supabase publishable key is not configured. Update js/supabaseClient.js.');
+      if (!window.supabaseClient) {
+        throw new Error('Supabase client is not available.');
       }
 
       const payload = {
@@ -25,35 +25,49 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         expires_at: expiresAt
       };
 
-      console.log('Supabase upsert payload', payload);
+      console.log('Preparing bus location update payload', payload);
 
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/bus_location_shares?on_conflict=bus_number&select=*`, {
-        method: 'POST',
-        headers: {
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-          'Content-Type': 'application/json',
-          Prefer: 'return=representation,resolution=merge-duplicates'
-        },
-        body: JSON.stringify(payload)
-      });
+      const { data: existingRows, error: selectError } = await window.supabaseClient
+        .from('bus_location_shares')
+        .select('id')
+        .eq('bus_number', busNumber)
+        .limit(1);
 
-      const responseText = await response.text();
-      let resultData = null;
-
-      try {
-        resultData = responseText ? JSON.parse(responseText) : null;
-      } catch (error) {
-        resultData = null;
+      if (selectError) {
+        throw selectError;
       }
 
-      console.log('Supabase upsert result', { status: response.status, data: resultData, responseText });
+      if (existingRows && existingRows.length > 0) {
+        const { data, error } = await window.supabaseClient
+          .from('bus_location_shares')
+          .update({
+            latitude,
+            longitude,
+            updated_at: payload.updated_at,
+            expires_at: expiresAt
+          })
+          .eq('bus_number', busNumber)
+          .select('*')
+          .single();
 
-      if (!response.ok) {
-        throw new Error(`Supabase upsert failed with status ${response.status}: ${responseText}`);
+        if (error) {
+          throw error;
+        }
+
+        return data;
       }
 
-      return Array.isArray(resultData) ? resultData[0] ?? null : resultData ?? null;
+      const { data, error } = await window.supabaseClient
+        .from('bus_location_shares')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
     },
 
     async getBuses() {
