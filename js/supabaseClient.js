@@ -265,7 +265,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       const { data, error } = await window.supabaseClient
         .from('buses')
         .select('id, bus_number, bus_code, active, route, starting_point, destination, stops')
-        .eq('bus_number', busNumber)
+        .ilike('bus_number', busNumber)
         .order('created_at', { ascending: true })
         .limit(1);
 
