@@ -262,12 +262,22 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         return { data: null, error: null };
       }
 
+      console.log('getBusByNumber: searching buses table for exact bus number', {
+        busNumber
+      });
+
       const { data, error } = await window.supabaseClient
         .from('buses')
         .select('id, bus_number, bus_code, active, route, starting_point, destination, stops')
-        .ilike('bus_number', busNumber)
+        .eq('bus_number', busNumber)
         .order('created_at', { ascending: true })
         .limit(1);
+
+      console.log('getBusByNumber: raw Supabase response', {
+        busNumber,
+        data,
+        error
+      });
 
       return { data: Array.isArray(data) && data.length > 0 ? data[0] : null, error };
     },
