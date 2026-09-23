@@ -65,6 +65,11 @@ let busLocationTicker = null;
 let liveBusUpdatedAt = null;
 let gpsRefreshInterval = null;
 let forcedRefreshInterval = null;
+let nearbyBusRefreshInterval = null;
+let nearbyBusTimestampTicker = null;
+let nearbyBusLatitude = null;
+let nearbyBusLongitude = null;
+let nearbyBusRefreshInFlight = false;
 let wakeLockSentinel = null;
 let gpsDebugStatus = 'waiting';
 let gpsDebugCallbackTime = 'none';
@@ -394,7 +399,39 @@ function loadActiveBusSessions(busNumber, routeLabel) {
     });
 }
 
-async function loadNearbyBusSessions(latitude, longitude) {
+function renderNearbyBusSessions(sessionRows) {
+  if (!activeSessionsContainer || !activeSessionsList || !activeSessionsMessage) {
+    return;
+  }
+
+  activeSessionsList.innerHTML = '';
+  activeSessionsContainer.hidden = false;
+  activeSessionsMessage.textContent = sessionRows.length
+    ? 'Nearby active buses'
+    : 'No active buses were found near your location.';
+
+  sessionRows.forEach((session) => {
+    const item = document.createElement('li');
+    item.className = 'session-item';
+    item.dataset.busCode = session.bus_code;
+    item.dataset.busNumber = session.bus_number;
+    item.innerHTML = `
+      <button type="button" class="session-button" data-bus-code="${session.bus_code}" data-bus-number="${session.bus_number}">
+        Bus ${session.bus_number}-${session.bus_code}
+        <span class="session-meta">
+          <span data-nearby-updated-at="${session.updated_at}">Updated ${formatTimeAgo(session.updated_at)}</span>
+          ${session.distanceKm != null ? ` · ${session.distanceKm.toFixed(1)} km away` : ''}
+        </span>
+      </button>
+    `;
+
+    activeSessionsList.appendChild(item);
+  });
+
+  startNearbyBusTimestampTicker();
+}
+
+async function loadNearbyBusSessions(latitude, longitude, selectFirst = true) {
   if (!window.supabaseHelpers) {
     throw new Error('Supabase helpers are not available.');
   }
@@ -424,13 +461,44 @@ async function loadNearbyBusSessions(latitude, longitude) {
   resultCard.hidden = false;
   mapWrapper.hidden = false;
 
-  if (!nearbyRows.length) {
-    renderActiveBusSessions('No active buses were found near your location.', []);
+  renderNearbyBusSessions(nearbyRows);
+
+  if (selectFirst && nearbyRows.length) {
+    selectActiveBusSession(nearbyRows[0].bus_number, nearbyRows[0].bus_code);
+  }
+}
+
+async function refreshNearbyBusSessions() {
+  if (
+    nearbyBusLatitude === null ||
+    nearbyBusLongitude === null ||
+    nearbyBusRefreshInFlight ||
+    activeSessionsContainer.hidden
+  ) {
     return;
   }
 
-  renderActiveBusSessions('Nearby active buses', nearbyRows);
-  selectActiveBusSession(nearbyRows[0].bus_number, nearbyRows[0].bus_code);
+  nearbyBusRefreshInFlight = true;
+  try {
+    await loadNearbyBusSessions(
+      nearbyBusLatitude,
+      nearbyBusLongitude,
+      false
+    );
+  } catch (error) {
+    console.error('Nearby bus refresh failed', error);
+  } finally {
+    nearbyBusRefreshInFlight = false;
+  }
+}
+
+function startNearbyBusRefresh() {
+  clearNearbyBusTimers();
+  startNearbyBusTimestampTicker();
+  nearbyBusRefreshInterval = window.setInterval(
+    refreshNearbyBusSessions,
+    25000
+  );
 }
 
 function selectActiveBusSession(busNumber, busCode) {
@@ -451,6 +519,9 @@ function selectActiveBusSession(busNumber, busCode) {
 }
 
 function clearActiveBusSessions() {
+  clearNearbyBusTimers();
+  nearbyBusLatitude = null;
+  nearbyBusLongitude = null;
   activeBusSessions = [];
   busSearchResults = [];
   if (activeSessionsList) {
@@ -515,6 +586,43 @@ function updateRelativeTimestampText(element, timestamp, prefix = 'Updated ') {
   }
 
   element.textContent = `${prefix}${formatTimeAgo(timestamp)}`;
+}
+
+function clearNearbyBusTimers() {
+  if (nearbyBusRefreshInterval) {
+    clearInterval(nearbyBusRefreshInterval);
+    nearbyBusRefreshInterval = null;
+  }
+
+  if (nearbyBusTimestampTicker) {
+    clearInterval(nearbyBusTimestampTicker);
+    nearbyBusTimestampTicker = null;
+  }
+
+  nearbyBusRefreshInFlight = false;
+}
+
+function startNearbyBusTimestampTicker() {
+  if (nearbyBusTimestampTicker) {
+    clearInterval(nearbyBusTimestampTicker);
+  }
+
+  const tick = () => {
+    if (!activeSessionsContainer || activeSessionsContainer.hidden) {
+      return;
+    }
+
+    document.querySelectorAll('[data-nearby-updated-at]').forEach((element) => {
+      updateRelativeTimestampText(
+        element,
+        element.dataset.nearbyUpdatedAt,
+        'Updated '
+      );
+    });
+  };
+
+  tick();
+  nearbyBusTimestampTicker = window.setInterval(tick, 1000);
 }
 
 function startLocationUpdateTicker() {
@@ -1084,6 +1192,9 @@ async function showBusDetails(bus) {
 
 searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  clearNearbyBusTimers();
+  nearbyBusLatitude = null;
+  nearbyBusLongitude = null;
 
   const input = document.getElementById('busNumber');
   const query = input.value.trim();
@@ -1206,7 +1317,13 @@ findNearbyBtn.addEventListener('click', () => {
   navigator.geolocation.getCurrentPosition(
     async (position) => {
       try {
-        await loadNearbyBusSessions(position.coords.latitude, position.coords.longitude);
+        nearbyBusLatitude = position.coords.latitude;
+        nearbyBusLongitude = position.coords.longitude;
+        await loadNearbyBusSessions(
+          nearbyBusLatitude,
+          nearbyBusLongitude
+        );
+        startNearbyBusRefresh();
         searchMessage.textContent = 'Nearby buses loaded.';
       } catch (error) {
         console.error('Nearby search failed', error);
@@ -1321,6 +1438,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('beforeunload', () => {
+  clearNearbyBusTimers();
   stopRealtimeSubscription();
 });
 
