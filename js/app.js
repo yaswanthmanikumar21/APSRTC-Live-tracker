@@ -16,6 +16,9 @@ const newBusStart = document.getElementById('newBusStart');
 const newBusDestination = document.getElementById('newBusDestination');
 const newBusStops = document.getElementById('newBusStops');
 const searchMessage = document.getElementById('searchMessage');
+const searchResultsContainer = document.getElementById('searchResultsContainer');
+const searchResultsMessage = document.getElementById('searchResultsMessage');
+const searchResultsList = document.getElementById('searchResultsList');
 const resultCard = document.getElementById('resultCard');
 const resultTitle = document.getElementById('resultTitle');
 const resultNumber = document.getElementById('resultNumber');
@@ -458,11 +461,21 @@ function clearActiveBusSessions() {
   }
 }
 
+function clearBusSearchResults() {
+  busSearchResults = [];
+  if (searchResultsList) {
+    searchResultsList.innerHTML = '';
+  }
+  if (searchResultsContainer) {
+    searchResultsContainer.hidden = true;
+  }
+}
+
 function renderBusSearchResults(buses, query) {
   busSearchResults = Array.isArray(buses) ? buses : [];
-  activeSessionsList.innerHTML = '';
-  activeSessionsContainer.hidden = false;
-  activeSessionsMessage.textContent = `Choose a bus matching "${query}".`;
+  searchResultsList.innerHTML = '';
+  searchResultsContainer.hidden = false;
+  searchResultsMessage.textContent = `Choose a bus matching "${query}".`;
 
   busSearchResults.forEach((bus, index) => {
     const normalizedBus = normalizeBusRecord(bus);
@@ -478,7 +491,7 @@ function renderBusSearchResults(buses, query) {
         <span class="session-meta">${normalizedBus.routeName}</span>
       </button>
     `;
-    activeSessionsList.appendChild(item);
+    searchResultsList.appendChild(item);
   });
 }
 
@@ -1035,6 +1048,7 @@ async function showBusDetails(bus) {
   resultSessionCode.textContent = currentBusSessionCode || '-';
   currentBusNumber = normalizedBus.busNumber;
   currentBusRoute = normalizedBus.routeName;
+  clearBusSearchResults();
 
   resultStops.innerHTML = '';
 
@@ -1075,6 +1089,7 @@ searchForm.addEventListener('submit', async (event) => {
   const query = input.value.trim();
 
   if (!query) {
+    clearBusSearchResults();
     searchMessage.textContent = 'Please enter a bus number to continue.';
     resultCard.hidden = true;
     mapWrapper.hidden = true;
@@ -1083,6 +1098,7 @@ searchForm.addEventListener('submit', async (event) => {
   }
 
   if (!window.supabaseHelpers) {
+    clearBusSearchResults();
     stopRealtimeSubscription();
     clearLiveBusMarker();
     resultCard.hidden = true;
@@ -1102,6 +1118,7 @@ searchForm.addEventListener('submit', async (event) => {
     const matchingBuses = Array.isArray(data) ? data : data ? [data] : [];
 
     if (!matchingBuses.length) {
+      clearBusSearchResults();
       stopRealtimeSubscription();
       clearLiveBusMarker();
       resultCard.hidden = true;
@@ -1114,6 +1131,7 @@ searchForm.addEventListener('submit', async (event) => {
     if (matchingBuses.length > 1) {
       stopRealtimeSubscription();
       clearLiveBusMarker();
+      clearActiveBusSessions();
       resultCard.hidden = true;
       mapWrapper.hidden = true;
       renderBusSearchResults(matchingBuses, query);
@@ -1124,6 +1142,7 @@ searchForm.addEventListener('submit', async (event) => {
     const foundBus = normalizeBusRecord(matchingBuses[0]);
 
     if (!foundBus || !foundBus.busNumber) {
+      clearBusSearchResults();
       stopRealtimeSubscription();
       clearLiveBusMarker();
       resultCard.hidden = true;
@@ -1137,6 +1156,7 @@ searchForm.addEventListener('submit', async (event) => {
     searchMessage.textContent = `Showing details for bus ${foundBus.busNumber}.`;
   } catch (error) {
     console.error('Bus search failed', error);
+    clearBusSearchResults();
     stopRealtimeSubscription();
     clearLiveBusMarker();
     resultCard.hidden = true;
@@ -1146,7 +1166,7 @@ searchForm.addEventListener('submit', async (event) => {
   }
 });
 
-activeSessionsList.addEventListener('click', (event) => {
+searchResultsList.addEventListener('click', (event) => {
   const searchResultButton = event.target.closest('[data-search-result-index]');
   if (searchResultButton) {
     const index = Number(searchResultButton.dataset.searchResultIndex);
@@ -1161,8 +1181,10 @@ activeSessionsList.addEventListener('click', (event) => {
           searchMessage.textContent = 'Could not load that bus right now.';
         });
     }
-    return;
   }
+});
+
+activeSessionsList.addEventListener('click', (event) => {
 
   const button = event.target.closest('[data-bus-code][data-bus-number]');
   if (!button) {
