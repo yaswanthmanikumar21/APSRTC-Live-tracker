@@ -341,10 +341,16 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
 
 function renderActiveBusSessions(routeLabel, sessionRows) {
   if (!activeSessionsContainer || !activeSessionsList || !activeSessionsMessage) {
+    console.warn('renderActiveBusSessions: required DOM elements are missing');
     return;
   }
 
   activeBusSessions = Array.isArray(sessionRows) ? sessionRows : [];
+  console.log('renderActiveBusSessions called', {
+    routeLabel,
+    rowCount: activeBusSessions.length,
+    rows: activeBusSessions
+  });
   activeSessionsList.innerHTML = '';
   activeSessionsContainer.hidden = false;
 
@@ -361,13 +367,22 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
     item.dataset.busCode = session.bus_code;
     item.dataset.busNumber = session.bus_number;
     item.innerHTML = `
-      <button type="button" class="session-button" data-bus-code="${session.bus_code}" data-bus-number="${session.bus_number}">
-        Bus ${session.bus_number}-${session.bus_code}
-        <span class="session-meta">${formatTimeAgo(session.updated_at)}${session.distanceKm != null ? ` · ${session.distanceKm.toFixed(1)} km away` : ''}</span>
+      <button type="button" class="session-button" data-bus-code="${session.bus_code || ''}" data-bus-number="${session.bus_number}">
+        Bus ${session.bus_number}${session.bus_code ? `-${session.bus_code}` : ''}
+        <span class="session-meta">
+          <span>${formatTimeAgo(session.updated_at)}</span>
+          ${session.distanceKm != null ? ` · ${session.distanceKm.toFixed(1)} km away` : ''}
+        </span>
       </button>
     `;
 
     activeSessionsList.appendChild(item);
+  });
+
+  console.log('renderActiveBusSessions rendered DOM items', {
+    rowCount: activeBusSessions.length,
+    renderedItemCount: activeSessionsList.children.length,
+    containerHidden: activeSessionsContainer.hidden
   });
 }
 
@@ -380,6 +395,14 @@ function loadActiveBusSessions(busNumber, routeLabel) {
   window.supabaseHelpers
     .getActiveBusSharesForRoute(busNumber)
     .then(({ data, error }) => {
+      console.log('loadActiveBusSessions fetched route rows', {
+        busNumber,
+        routeLabel,
+        rowCount: Array.isArray(data) ? data.length : 0,
+        data,
+        error
+      });
+
       if (error) {
         console.error('Failed to load active bus sessions', error);
         renderActiveBusSessions('Could not load active buses for this route.', []);
@@ -502,12 +525,12 @@ function startNearbyBusRefresh() {
 }
 
 function selectActiveBusSession(busNumber, busCode) {
-  if (!busNumber || !busCode) {
+  if (!busNumber) {
     return;
   }
 
   currentBusSessionCode = busCode;
-  resultSessionCode.textContent = busCode;
+  resultSessionCode.textContent = busCode || '-';
   resultNumber.textContent = busNumber;
   startRealtimeForBus(busNumber, busCode);
 
@@ -1322,12 +1345,12 @@ searchResultsList.addEventListener('click', (event) => {
 
 activeSessionsList.addEventListener('click', (event) => {
 
-  const button = event.target.closest('[data-bus-code][data-bus-number]');
+  const button = event.target.closest('[data-bus-number]');
   if (!button) {
     return;
   }
 
-  const busCode = button.dataset.busCode;
+  const busCode = button.dataset.busCode || null;
   const busNumber = button.dataset.busNumber;
   selectActiveBusSession(busNumber, busCode);
 });
