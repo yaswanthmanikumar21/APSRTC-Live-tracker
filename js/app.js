@@ -1114,25 +1114,50 @@ async function startRealtimeForBus(busNumber, busCode = null) {
     },
     (payload) => {
       const row = payload.new || payload.old || payload;
+      console.log('Realtime bus location event received', {
+        event: payload.eventType,
+        busNumber: row?.bus_number,
+        busCode: row?.bus_code,
+        searchedBusNumber: busNumber,
+        searchedBusCode: busCode,
+        filter
+      });
+
       if (!row || row.bus_number !== busNumber) {
+        console.log('Realtime event ignored because bus_number did not match', {
+          receivedBusNumber: row?.bus_number,
+          searchedBusNumber: busNumber
+        });
         return;
       }
 
       if (busCode && row.bus_code !== busCode) {
+        console.log('Realtime event ignored because bus_code did not match', {
+          receivedBusCode: row.bus_code,
+          searchedBusCode: busCode
+        });
         return;
       }
 
       const liveMessage = document.getElementById('liveLocationMessage');
       if (liveMessage) {
+        console.log('Realtime event matched; updating live bus UI', {
+          busNumber: row.bus_number,
+          busCode: row.bus_code,
+          updatedAt: row.updated_at
+        });
         updateLiveBusLocationFromRow(row, liveMessage);
       }
     }
   );
 
   realtimeSubscription.subscribe((status) => {
-    if (status === 'SUBSCRIBED') {
-      console.log(`Realtime subscribed for bus ${busNumber}${busCode ? ` session ${busCode}` : ''}`);
-    }
+    console.log('Realtime subscription status', {
+      status,
+      busNumber,
+      busCode,
+      filter
+    });
   });
 }
 
