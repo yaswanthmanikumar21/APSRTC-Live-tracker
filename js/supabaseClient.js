@@ -259,27 +259,31 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
 
     async getBusByNumber(busNumber) {
       if (!busNumber || !window.supabaseClient) {
-        return { data: null, error: null };
+        return { data: [], error: null };
       }
 
-      console.log('getBusByNumber: searching buses table for exact bus number', {
-        busNumber
+      const searchTerm = String(busNumber).trim();
+      const pattern = `%${searchTerm}%`;
+
+      console.log('getBusByNumber: searching buses table with case-insensitive partial match', {
+        searchTerm,
+        pattern
       });
 
       const { data, error } = await window.supabaseClient
         .from('buses')
         .select('id, bus_number, bus_code, active, route, starting_point, destination, stops')
-        .eq('bus_number', busNumber)
+        .ilike('bus_number', pattern)
         .order('created_at', { ascending: true })
-        .limit(1);
+        .limit(50);
 
       console.log('getBusByNumber: raw Supabase response', {
-        busNumber,
+        searchTerm,
         data,
         error
       });
 
-      return { data: Array.isArray(data) && data.length > 0 ? data[0] : null, error };
+      return { data: Array.isArray(data) ? data : [], error };
     },
 
     async getActiveBusSharesForRoute(busNumber) {

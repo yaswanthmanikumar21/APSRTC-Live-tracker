@@ -1,6 +1,7 @@
 let busCatalog = [];
 let currentBusSessionCode = null;
 let activeBusSessions = [];
+let busSearchResults = [];
 
 const busList = document.getElementById('busList');
 const searchForm = document.getElementById('searchForm');
@@ -448,12 +449,37 @@ function selectActiveBusSession(busNumber, busCode) {
 
 function clearActiveBusSessions() {
   activeBusSessions = [];
+  busSearchResults = [];
   if (activeSessionsList) {
     activeSessionsList.innerHTML = '';
   }
   if (activeSessionsContainer) {
     activeSessionsContainer.hidden = true;
   }
+}
+
+function renderBusSearchResults(buses, query) {
+  busSearchResults = Array.isArray(buses) ? buses : [];
+  activeSessionsList.innerHTML = '';
+  activeSessionsContainer.hidden = false;
+  activeSessionsMessage.textContent = `Choose a bus matching "${query}".`;
+
+  busSearchResults.forEach((bus, index) => {
+    const normalizedBus = normalizeBusRecord(bus);
+    if (!normalizedBus) {
+      return;
+    }
+
+    const item = document.createElement('li');
+    item.className = 'session-item';
+    item.innerHTML = `
+      <button type="button" class="session-button" data-search-result-index="${index}">
+        Bus ${normalizedBus.busNumber}
+        <span class="session-meta">${normalizedBus.routeName}</span>
+      </button>
+    `;
+    activeSessionsList.appendChild(item);
+  });
 }
 
 function generateBusSessionCode(busNumber) {
@@ -1073,7 +1099,9 @@ searchForm.addEventListener('submit', async (event) => {
       throw error;
     }
 
-    if (!data) {
+    const matchingBuses = Array.isArray(data) ? data : data ? [data] : [];
+
+    if (!matchingBuses.length) {
       stopRealtimeSubscription();
       clearLiveBusMarker();
       resultCard.hidden = true;
@@ -1083,7 +1111,17 @@ searchForm.addEventListener('submit', async (event) => {
       return;
     }
 
-    const foundBus = normalizeBusRecord(data);
+    if (matchingBuses.length > 1) {
+      stopRealtimeSubscription();
+      clearLiveBusMarker();
+      resultCard.hidden = true;
+      mapWrapper.hidden = true;
+      renderBusSearchResults(matchingBuses, query);
+      searchMessage.textContent = `${matchingBuses.length} buses found. Select one to view details.`;
+      return;
+    }
+
+    const foundBus = normalizeBusRecord(matchingBuses[0]);
 
     if (!foundBus || !foundBus.busNumber) {
       stopRealtimeSubscription();
@@ -1109,6 +1147,23 @@ searchForm.addEventListener('submit', async (event) => {
 });
 
 activeSessionsList.addEventListener('click', (event) => {
+  const searchResultButton = event.target.closest('[data-search-result-index]');
+  if (searchResultButton) {
+    const index = Number(searchResultButton.dataset.searchResultIndex);
+    const selectedBus = normalizeBusRecord(busSearchResults[index]);
+    if (selectedBus) {
+      showBusDetails(selectedBus)
+        .then(() => {
+          searchMessage.textContent = `Showing details for bus ${selectedBus.busNumber}.`;
+        })
+        .catch((error) => {
+          console.error('Failed to show selected bus', error);
+          searchMessage.textContent = 'Could not load that bus right now.';
+        });
+    }
+    return;
+  }
+
   const button = event.target.closest('[data-bus-code][data-bus-number]');
   if (!button) {
     return;
