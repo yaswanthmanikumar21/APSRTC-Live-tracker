@@ -339,6 +339,35 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+function getViewerPositionOnce() {
+  if (!navigator.geolocation) {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        });
+      },
+      (error) => {
+        console.info(
+          'Viewer location unavailable; showing route buses without distance sorting.',
+          error
+        );
+        resolve(null);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 8000
+      }
+    );
+  });
+}
+
 function renderActiveBusSessions(routeLabel, sessionRows) {
   if (!activeSessionsContainer || !activeSessionsList || !activeSessionsMessage) {
     console.warn('renderActiveBusSessions: required DOM elements are missing');
@@ -370,7 +399,7 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
       <button type="button" class="session-button" data-bus-code="${session.bus_code || ''}" data-bus-number="${session.bus_number}">
         Bus ${session.bus_number}${session.bus_code ? `-${session.bus_code}` : ''}
         <span class="session-meta">
-          <span>${formatTimeAgo(session.updated_at)}</span>
+          <span>Updated ${formatTimeAgo(session.updated_at)}</span>
           ${session.distanceKm != null ? ` · ${session.distanceKm.toFixed(1)} km away` : ''}
         </span>
       </button>
@@ -394,7 +423,7 @@ function loadActiveBusSessions(busNumber, routeLabel) {
 
   window.supabaseHelpers
     .getActiveBusSharesForRoute(busNumber)
-    .then(({ data, error }) => {
+    .then(async ({ data, error }) => {
       console.log('loadActiveBusSessions fetched route rows', {
         busNumber,
         routeLabel,
@@ -410,10 +439,37 @@ function loadActiveBusSessions(busNumber, routeLabel) {
       }
 
       const activeRows = Array.isArray(data) ? data : [];
-      renderActiveBusSessions(`Active buses on route ${busNumber}`, activeRows);
+      const viewerPosition = await getViewerPositionOnce();
+      const displayRows = viewerPosition
+        ? activeRows
+            .map((row) => ({
+              ...row,
+              distanceKm: getDistanceKm(
+                viewerPosition.latitude,
+                viewerPosition.longitude,
+                Number(row.latitude),
+                Number(row.longitude)
+              )
+            }))
+            .sort((firstRow, secondRow) =>
+              firstRow.distanceKm - secondRow.distanceKm
+            )
+        : activeRows;
 
-      if (activeRows.length === 1) {
-        selectActiveBusSession(busNumber, activeRows[0].bus_code);
+      console.log('loadActiveBusSessions prepared display rows', {
+        busNumber,
+        viewerPosition,
+        rowCount: displayRows.length,
+        sortedByDistance: Boolean(viewerPosition)
+      });
+
+      renderActiveBusSessions(
+        `Active buses on route ${busNumber}`,
+        displayRows
+      );
+
+      if (displayRows.length === 1) {
+        selectActiveBusSession(busNumber, displayRows[0].bus_code);
       }
     })
     .catch((error) => {
