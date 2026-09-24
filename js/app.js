@@ -800,13 +800,21 @@ async function saveLocationToSupabase(latitude, longitude, busNumber = currentBu
     expiresAt
   });
 
-  await window.supabaseHelpers.insertShare({
+  const savedRow = await window.supabaseHelpers.insertShare({
     busNumber: selectedBusNumber,
     busCode: selectedBusCode,
     latitude,
     longitude,
     expiresAt
   });
+
+  if (
+    !savedRow ||
+    savedRow.bus_number !== selectedBusNumber ||
+    (selectedBusCode && savedRow.bus_code !== selectedBusCode)
+  ) {
+    throw new Error('Supabase location save returned no matching row.');
+  }
 
   lastSavedCoordinates = coordinateKey;
   lastSavedBusNumber = selectedBusNumber;

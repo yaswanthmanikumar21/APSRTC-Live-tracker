@@ -17,180 +17,72 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
         throw new Error('Supabase client is not available.');
       }
 
-      const payload = {
-        bus_number: busNumber,
-        bus_code: busCode || null,
+      const updatedFields = {
         latitude,
         longitude,
         updated_at: new Date().toISOString(),
         expires_at: expiresAt
       };
 
-      console.log('Preparing bus location update payload', payload);
+      const insertPayload = {
+        bus_number: busNumber,
+        bus_code: busCode || null,
+        ...updatedFields
+      };
 
-      // If busCode is provided, always operate by bus_code only.
-      try {
-        if (busCode) {
-          // Try updating the row(s) for this bus_code first
-          const { data: updatedRows, error: updateError } = await window.supabaseClient
-            .from('bus_location_shares')
-            .update({
-              bus_number: busNumber,
-              bus_code: busCode || null,
-              latitude,
-              longitude,
-              updated_at: payload.updated_at,
-              expires_at: expiresAt
-            })
-            .eq('bus_code', busCode)
-            .select('*');
+      console.log('Preparing bus location update payload', {
+        busNumber,
+        busCode: busCode || null,
+        updatedFields
+      });
 
-          if (updateError) {
-            throw updateError;
-          }
+      const updateQuery = window.supabaseClient
+        .from('bus_location_shares')
+        .update(updatedFields);
 
-          console.log('insertShare: updatedRows (by bus_code) count =', Array.isArray(updatedRows) ? updatedRows.length : (updatedRows ? 1 : 0));
-
-          if (Array.isArray(updatedRows) && updatedRows.length > 0) {
-            // Return the first updated row (there should normally be one)
-            return updatedRows[0];
-          }
-
-          // No existing row for this bus_code -> try inserting a new one
-          try {
-            const { data: inserted, error: insertError } = await window.supabaseClient
-              .from('bus_location_shares')
-              .insert(payload)
-              .select('*');
-
-            if (insertError) {
-              throw insertError;
-            }
-
-            console.log('insertShare: inserted rows count (by bus_code) =', Array.isArray(inserted) ? inserted.length : (inserted ? 1 : 0));
-            return Array.isArray(inserted) ? inserted[0] : inserted;
-          } catch (insErr) {
-            // If insert failed due to duplicate race, try update again silently
-            const isDuplicateKeyError =
-              insErr?.code === '23505' ||
-              insErr?.details?.includes('duplicate key') ||
-              insErr?.message?.includes('duplicate key') ||
-              insErr?.message?.includes('23505');
-
-            if (!isDuplicateKeyError) {
-              throw insErr;
-            }
-
-            // Retry update after duplicate key indicates a concurrent insert happened
-            const { data: finalUpdated, error: finalUpdateError } = await window.supabaseClient
-              .from('bus_location_shares')
-              .update({
-                bus_number: busNumber,
-                bus_code: busCode || null,
-                latitude,
-                longitude,
-                updated_at: payload.updated_at,
-                expires_at: expiresAt
-              })
-              .eq('bus_code', busCode)
-              .select('*');
-
-            if (finalUpdateError) {
-              throw finalUpdateError;
-            }
-
-            console.log('insertShare: finalUpdated (after duplicate) count =', Array.isArray(finalUpdated) ? finalUpdated.length : (finalUpdated ? 1 : 0));
-            return Array.isArray(finalUpdated) ? finalUpdated[0] : finalUpdated;
-          }
-        }
-
-        // No busCode provided: try to find the most recent session for this bus_number and update it,
-        // otherwise insert a new share row tied to the bus_number.
-        const { data: existingRows, error: selectError } = await window.supabaseClient
-          .from('bus_location_shares')
-          .select('id, bus_code')
-          .eq('bus_number', busNumber)
-          .order('updated_at', { ascending: false })
-          .limit(1);
-
-        if (selectError) {
-          throw selectError;
-        }
-
-        console.log('insertShare: existingRows (by bus_number) count =', Array.isArray(existingRows) ? existingRows.length : (existingRows ? 1 : 0));
-
-        if (Array.isArray(existingRows) && existingRows.length > 0) {
-          // Update the most recent session (by id) rather than updating all rows for the route
-          const targetId = existingRows[0].id;
-
-          const { data: updated, error: updateErr } = await window.supabaseClient
-            .from('bus_location_shares')
-            .update({
-              bus_number: busNumber,
-              bus_code: existingRows[0].bus_code || null,
-              latitude,
-              longitude,
-              updated_at: payload.updated_at,
-              expires_at: expiresAt
-            })
-            .eq('id', targetId)
-            .select('*');
-
-          if (updateErr) {
-            throw updateErr;
-          }
-
-          console.log('insertShare: updated rows count (by id) =', Array.isArray(updated) ? updated.length : (updated ? 1 : 0));
-          return Array.isArray(updated) ? updated[0] : updated;
-        }
-
-        // No existing session found for this bus_number -> insert a new row
-        const { data: insertedNew, error: insertNewError } = await window.supabaseClient
-          .from('bus_location_shares')
-          .insert(payload)
-          .select('*');
-
-        if (insertNewError) {
-          // If insert failed due to duplicate key, try to update by bus_number as a fallback
-          const isDuplicateKey =
-            insertNewError?.code === '23505' ||
-            insertNewError?.details?.includes('duplicate key') ||
-            insertNewError?.message?.includes('duplicate key') ||
-            insertNewError?.message?.includes('23505');
-
-          if (!isDuplicateKey) {
-            throw insertNewError;
-          }
-
-          // Retry: update most recent row for bus_number
-          const { data: retryRows, error: retryErr } = await window.supabaseClient
-            .from('bus_location_shares')
-            .update({
-              bus_number: busNumber,
-              bus_code: null,
-              latitude,
-              longitude,
-              updated_at: payload.updated_at,
-              expires_at: expiresAt
-            })
-            .eq('bus_number', busNumber)
-            .select('*')
-            .order('updated_at', { ascending: false })
-            .limit(1);
-
-          if (retryErr) {
-            throw retryErr;
-          }
-
-          console.log('insertShare: retry updated rows count (by bus_number) =', Array.isArray(retryRows) ? retryRows.length : (retryRows ? 1 : 0));
-          return Array.isArray(retryRows) ? retryRows[0] : retryRows;
-        }
-
-        console.log('insertShare: inserted rows count (no bus_code) =', Array.isArray(insertedNew) ? insertedNew.length : (insertedNew ? 1 : 0));
-        return Array.isArray(insertedNew) ? insertedNew[0] : insertedNew;
-      } catch (err) {
-        throw err;
+      if (busCode) {
+        updateQuery.eq('bus_code', busCode);
+      } else {
+        updateQuery.eq('bus_number', busNumber);
       }
+
+      const { data: updatedRows, error: updateError } = await updateQuery.select('*');
+
+      if (updateError) {
+        throw new Error(`Location update failed: ${updateError.message}`);
+      }
+
+      const updatedCount = Array.isArray(updatedRows) ? updatedRows.length : 0;
+      console.log('insertShare: update result', {
+        filter: busCode ? { bus_code: busCode } : { bus_number: busNumber },
+        updatedCount,
+        updatedRows
+      });
+
+      if (updatedCount > 0) {
+        return updatedRows[0];
+      }
+
+      const { data: insertedRows, error: insertError } = await window.supabaseClient
+        .from('bus_location_shares')
+        .insert(insertPayload)
+        .select('*');
+
+      if (insertError) {
+        throw new Error(`Location insert failed: ${insertError.message}`);
+      }
+
+      const insertedCount = Array.isArray(insertedRows) ? insertedRows.length : 0;
+      console.log('insertShare: insert result', {
+        insertedCount,
+        insertedRows
+      });
+
+      if (insertedCount === 0) {
+        throw new Error('Location save failed: Supabase inserted no rows.');
+      }
+
+      return insertedRows[0];
     },
 
     async getBuses() {
