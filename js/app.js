@@ -28,6 +28,9 @@ const resultDestination = document.getElementById('resultDestination');
 const resultStatus = document.getElementById('resultStatus');
 const resultSessionCode = document.getElementById('resultSessionCode');
 const resultStops = document.getElementById('resultStops');
+const capacityStatus = document.getElementById('capacityStatus');
+const capacityMessage = document.getElementById('capacityMessage');
+const capacityButtons = document.querySelectorAll('[data-capacity-status]');
 const activeSessionsContainer = document.getElementById('activeSessionsContainer');
 const activeSessionsMessage = document.getElementById('activeSessionsMessage');
 const activeSessionsList = document.getElementById('activeSessionsList');
@@ -337,6 +340,35 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+const capacityLabels = {
+  empty: '🟢 Empty',
+  half_full: '🟡 Half Full',
+  full: '🔴 Full'
+};
+
+function renderCapacityStatus(status) {
+  if (!capacityStatus) {
+    return;
+  }
+
+  capacityStatus.textContent = capacityLabels[status]
+    ? `Capacity: ${capacityLabels[status]}`
+    : 'Capacity: Not reported yet';
+}
+
+function setCapacityMessage(message, isError = false) {
+  if (!capacityMessage) {
+    return;
+  }
+
+  capacityMessage.textContent = message;
+  capacityMessage.style.color = isError ? '#b00020' : '';
+}
+
+function updateCapacityFromRow(row) {
+  renderCapacityStatus(row?.capacity_status || null);
 }
 
 function getViewerPositionOnce() {
@@ -1151,6 +1183,8 @@ async function startRealtimeForBus(busNumber, busCode = null) {
     return;
   }
 
+  renderCapacityStatus(null);
+  setCapacityMessage('');
   console.log('startRealtimeForBus searching live location for', { busNumber, busCode });
   try {
     const { data, error } = await window.supabaseHelpers.getLatestActiveBusLocation(busNumber, busCode);
@@ -1169,6 +1203,7 @@ async function startRealtimeForBus(busNumber, busCode = null) {
         liveMessage.textContent = 'No live location available for this bus.';
       }
     } else {
+      updateCapacityFromRow(data);
       await updateLiveBusLocationFromRow(data, liveMessage);
     }
   } catch (error) {
@@ -1227,6 +1262,8 @@ async function startRealtimeForBus(busNumber, busCode = null) {
       }
 
       const liveMessage = document.getElementById('liveLocationMessage');
+      updateCapacityFromRow(row);
+
       if (liveMessage) {
         console.log('Realtime event matched; updating live bus UI', {
           busNumber: row.bus_number,
@@ -1417,6 +1454,50 @@ activeSessionsList.addEventListener('click', (event) => {
   const busCode = button.dataset.busCode || null;
   const busNumber = button.dataset.busNumber;
   selectActiveBusSession(busNumber, busCode);
+});
+
+capacityButtons.forEach((button) => {
+  button.addEventListener('click', async () => {
+    const selectedStatus = button.dataset.capacityStatus;
+    const busCode = currentBusSessionCode;
+
+    if (!busCode || !capacityLabels[selectedStatus]) {
+      setCapacityMessage(
+        'Select an active bus session before reporting capacity.',
+        true
+      );
+      return;
+    }
+
+    capacityButtons.forEach((capacityButton) => {
+      capacityButton.disabled = true;
+    });
+    setCapacityMessage('Saving capacity...');
+
+    try {
+      const { data, error } = await window.supabaseHelpers.updateBusCapacity({
+        busCode,
+        capacityStatus: selectedStatus
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      updateCapacityFromRow(data);
+      setCapacityMessage('Capacity updated.');
+    } catch (error) {
+      console.error('Capacity update failed', error);
+      setCapacityMessage(
+        `Could not update capacity: ${error.message}`,
+        true
+      );
+    } finally {
+      capacityButtons.forEach((capacityButton) => {
+        capacityButton.disabled = false;
+      });
+    }
+  });
 });
 
 findNearbyBtn.addEventListener('click', () => {

@@ -176,6 +176,46 @@ h1 {
   align-items: center;
 }
 
+.capacity-panel {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.capacity-panel h4 {
+  margin: 0 0 10px;
+}
+
+.capacity-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.capacity-button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: #f8fbff;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.capacity-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.capacity-message {
+  min-height: 1.2em;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .share-button,
 .stop-button {
   border: none;

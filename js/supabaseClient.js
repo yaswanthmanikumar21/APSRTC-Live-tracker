@@ -85,6 +85,50 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       return insertedRows[0];
     },
 
+    async updateBusCapacity({ busCode, capacityStatus }) {
+      const allowedStatuses = new Set(['empty', 'half_full', 'full']);
+
+      if (!busCode) {
+        return {
+          data: null,
+          error: new Error('A bus session code is required to update capacity.')
+        };
+      }
+
+      if (!allowedStatuses.has(capacityStatus)) {
+        return {
+          data: null,
+          error: new Error('Invalid bus capacity status.')
+        };
+      }
+
+      if (!window.supabaseClient) {
+        return {
+          data: null,
+          error: new Error('Supabase client is not available.')
+        };
+      }
+
+      const { data, error } = await window.supabaseClient
+        .from('bus_location_shares')
+        .update({ capacity_status: capacityStatus })
+        .eq('bus_code', busCode)
+        .select('*');
+
+      if (error) {
+        return { data: null, error };
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        return {
+          data: null,
+          error: new Error(`No active bus session found for ${busCode}.`)
+        };
+      }
+
+      return { data: data[0], error: null };
+    },
+
     async getBuses() {
       if (!window.supabaseClient) {
         return { data: [], error: new Error('Supabase client is not available.') };
@@ -187,7 +231,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       const nowTime = Date.now();
       const { data, error } = await window.supabaseClient
         .from('bus_location_shares')
-        .select('bus_number, bus_code, latitude, longitude, updated_at, expires_at')
+        .select('bus_number, bus_code, latitude, longitude, updated_at, expires_at, capacity_status')
         .eq('bus_number', busNumber)
         .order('updated_at', { ascending: false });
 
@@ -246,7 +290,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       const filterDescription = busCode ? `bus_code=${busCode}` : `bus_number=${busNumber}`;
       console.log('getLatestActiveBusLocation searching for', { busNumber, busCode, filterDescription });
 
-      const query = window.supabaseClient.from('bus_location_shares').select('bus_number, bus_code, latitude, longitude, updated_at, expires_at');
+      const query = window.supabaseClient.from('bus_location_shares').select('bus_number, bus_code, latitude, longitude, updated_at, expires_at, capacity_status');
 
       if (busCode) {
         query.eq('bus_code', busCode);

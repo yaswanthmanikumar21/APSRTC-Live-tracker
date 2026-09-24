@@ -102,6 +102,22 @@
               </div>
             </dl>
 
+            <div id="capacityPanel" class="capacity-panel">
+              <h4 id="capacityStatus">Capacity: Not reported yet</h4>
+              <div class="capacity-actions" role="group" aria-label="Report bus capacity">
+                <button type="button" class="capacity-button" data-capacity-status="empty">
+                  🟢 Empty
+                </button>
+                <button type="button" class="capacity-button" data-capacity-status="half_full">
+                  🟡 Half Full
+                </button>
+                <button type="button" class="capacity-button" data-capacity-status="full">
+                  🔴 Full
+                </button>
+              </div>
+              <p id="capacityMessage" class="capacity-message" aria-live="polite"></p>
+            </div>
+
             <div class="share-section">
               <button id="shareLocationBtn" class="share-button" type="button">
                 📍 I'm on this bus
