@@ -371,6 +371,33 @@ function updateCapacityFromRow(row) {
   renderCapacityStatus(row?.capacity_status || null);
 }
 
+function updateActiveSessionTimestamp(timestamp, busNumber, busCode) {
+  if (!timestamp || !activeSessionsList) {
+    return;
+  }
+
+  Array.from(
+    activeSessionsList.querySelectorAll('.session-button')
+  ).forEach((button) => {
+    const matchesCode =
+      busCode &&
+      button.dataset.busCode === busCode;
+    const matchesNumber =
+      !busCode &&
+      button.dataset.busNumber === busNumber;
+
+    if (matchesCode || matchesNumber) {
+      const timestampElement = button.querySelector(
+        '[data-route-session-updated-at]'
+      );
+      if (timestampElement) {
+        timestampElement.textContent =
+          `Updated ${formatTimeAgo(timestamp)}`;
+      }
+    }
+  });
+}
+
 function getViewerPositionOnce() {
   if (!navigator.geolocation) {
     return Promise.resolve(null);
@@ -431,7 +458,9 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
       <button type="button" class="session-button" data-bus-code="${session.bus_code || ''}" data-bus-number="${session.bus_number}">
         Bus ${session.bus_number}${session.bus_code ? `-${session.bus_code}` : ''}
         <span class="session-meta">
-          <span>Updated ${formatTimeAgo(session.updated_at)}</span>
+          <span data-route-session-updated-at="${session.updated_at}">
+            Updated ${formatTimeAgo(session.updated_at)}
+          </span>
           ${session.distanceKm != null ? ` · ${session.distanceKm.toFixed(1)} km away` : ''}
         </span>
       </button>
@@ -766,6 +795,11 @@ function startBusLocationTicker(liveMessageElement, timestamp) {
     }
 
     updateRelativeTimestampText(liveMessageElement, currentTimestamp, 'Live bus location found. Updated ');
+    updateActiveSessionTimestamp(
+      currentTimestamp,
+      currentRealtimeBusNumber || currentBusNumber,
+      currentRealtimeBusCode || currentBusSessionCode
+    );
   };
 
   tick();
@@ -1236,13 +1270,16 @@ async function startRealtimeForBus(busNumber, busCode = null) {
     },
     (payload) => {
       const row = payload.new || payload.old || payload;
-      console.log('Realtime bus location event received', {
+      console.log('Realtime bus location/capacity event received', {
         event: payload.eventType,
-        busNumber: row?.bus_number,
-        busCode: row?.bus_code,
+        filter,
         searchedBusNumber: busNumber,
         searchedBusCode: busCode,
-        filter
+        fullPayload: payload,
+        fullRow: row,
+        receivedBusNumber: row?.bus_number,
+        receivedBusCode: row?.bus_code,
+        receivedCapacityStatus: row?.capacity_status
       });
 
       if (!row || row.bus_number !== busNumber) {
@@ -1262,6 +1299,11 @@ async function startRealtimeForBus(busNumber, busCode = null) {
       }
 
       const liveMessage = document.getElementById('liveLocationMessage');
+      console.log('Calling updateCapacityFromRow for matched Realtime event', {
+        busNumber: row.bus_number,
+        busCode: row.bus_code,
+        capacityStatus: row.capacity_status
+      });
       updateCapacityFromRow(row);
 
       if (liveMessage) {
