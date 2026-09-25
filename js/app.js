@@ -1854,10 +1854,10 @@ window.addEventListener('beforeunload', () => {
   stopRealtimeSubscription();
 });
 
-initMap();
-renderBusCards();
-
 async function initializeApp() {
+  initMap();
+  renderBusCards();
+
   console.log('initializeApp: Supabase client and DOM are ready', {
     hasSupabaseClient: Boolean(window.supabaseClient),
     hasSupabaseHelpers: Boolean(window.supabaseHelpers),
@@ -1868,6 +1868,14 @@ async function initializeApp() {
   await loadBusSessionFromUrl();
 }
 
-initializeApp().catch((error) => {
-  console.error('Application initialization failed', error);
-});
+function startApp() {
+  initializeApp().catch((error) => {
+    console.error('Application initialization failed', error);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp, { once: true });
+} else {
+  startApp();
+}
