@@ -19,6 +19,8 @@ const searchMessage = document.getElementById('searchMessage');
 const searchResultsContainer = document.getElementById('searchResultsContainer');
 const searchResultsMessage = document.getElementById('searchResultsMessage');
 const searchResultsList = document.getElementById('searchResultsList');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const connectionError = document.getElementById('connectionError');
 const resultCard = document.getElementById('resultCard');
 const resultTitle = document.getElementById('resultTitle');
 const copyBusLinkBtn = document.getElementById('copyBusLinkBtn');
@@ -82,6 +84,24 @@ let gpsDebugCallbackTime = 'none';
 let gpsDebugLatitude = 'none';
 let gpsDebugLongitude = 'none';
 let gpsDebugError = 'none';
+
+function setPageTitle(busNumber = null) {
+  document.title = busNumber
+    ? `Bus ${busNumber} - APSRTC Live`
+    : 'APSRTC Live';
+}
+
+function setConnectionError(isVisible) {
+  if (connectionError) {
+    connectionError.hidden = !isVisible;
+  }
+}
+
+function hideLoadingIndicator() {
+  if (loadingIndicator) {
+    loadingIndicator.hidden = true;
+  }
+}
 
 function renderGpsDebug() {
   if (!gpsDebugText) {
@@ -239,7 +259,7 @@ async function loadBusCatalog() {
   if (!window.supabaseHelpers) {
     busCatalog = [];
     renderBusCards();
-    searchMessage.textContent = 'Bus catalog is unavailable right now.';
+    setConnectionError(true);
     return;
   }
 
@@ -260,16 +280,18 @@ async function loadBusCatalog() {
       busCatalog = normalizedBuses;
       renderBusCards();
       searchMessage.textContent = `Loaded ${normalizedBuses.length} buses from the live catalog.`;
+      setConnectionError(false);
     } else {
       busCatalog = [];
       renderBusCards();
       searchMessage.textContent = 'No bus records were returned from Supabase.';
+      setConnectionError(false);
     }
   } catch (error) {
     console.error('Failed to load buses from Supabase', error);
     busCatalog = [];
     renderBusCards();
-    searchMessage.textContent = 'Unable to load the bus catalog right now.';
+    setConnectionError(true);
   }
 }
 
@@ -792,6 +814,7 @@ async function loadBusSessionFromUrl() {
       }
 
       await showBusDetails(normalizedBus);
+      setConnectionError(false);
       console.log('loadBusSessionFromUrl: showBusDetails completed', {
         busNumber: normalizedBus.busNumber,
         busCode
@@ -801,6 +824,7 @@ async function loadBusSessionFromUrl() {
       searchMessage.textContent = `Showing shared bus session ${busCode}.`;
     } catch (error) {
       console.error('Failed to load shared bus session', error);
+      setConnectionError(true);
       searchMessage.textContent = 'The shared bus link could not be loaded.';
     }
   }
@@ -1487,6 +1511,7 @@ async function showBusDetails(bus) {
   const normalizedBus = normalizeBusRecord(bus);
 
   if (!normalizedBus) {
+    setPageTitle();
     resultCard.hidden = true;
     mapWrapper.hidden = true;
     activeSessionsContainer.hidden = true;
@@ -1495,6 +1520,7 @@ async function showBusDetails(bus) {
   }
 
   resultTitle.textContent = `Bus ${normalizedBus.busNumber}`;
+  setPageTitle(normalizedBus.busNumber);
   resultNumber.textContent = normalizedBus.busNumber;
   resultRoute.textContent = normalizedBus.routeName;
   resultStart.textContent = normalizedBus.startingPoint;
@@ -1547,6 +1573,7 @@ searchForm.addEventListener('submit', async (event) => {
   const query = input.value.trim();
 
   if (!query) {
+    setPageTitle();
     clearBusSearchResults();
     searchMessage.textContent = 'Please enter a bus number to continue.';
     resultCard.hidden = true;
@@ -1556,13 +1583,14 @@ searchForm.addEventListener('submit', async (event) => {
   }
 
   if (!window.supabaseHelpers) {
+    setPageTitle();
     clearBusSearchResults();
     stopRealtimeSubscription();
     clearLiveBusMarker();
     resultCard.hidden = true;
     mapWrapper.hidden = true;
     activeSessionsContainer.hidden = true;
-    searchMessage.textContent = 'Bus search is unavailable right now.';
+    setConnectionError(true);
     return;
   }
 
@@ -1576,6 +1604,7 @@ searchForm.addEventListener('submit', async (event) => {
     const matchingBuses = Array.isArray(data) ? data : data ? [data] : [];
 
     if (!matchingBuses.length) {
+      setPageTitle();
       clearBusSearchResults();
       stopRealtimeSubscription();
       clearLiveBusMarker();
@@ -1587,6 +1616,7 @@ searchForm.addEventListener('submit', async (event) => {
     }
 
     if (matchingBuses.length > 1) {
+      setPageTitle();
       stopRealtimeSubscription();
       clearLiveBusMarker();
       clearActiveBusSessions();
@@ -1600,6 +1630,7 @@ searchForm.addEventListener('submit', async (event) => {
     const foundBus = normalizeBusRecord(matchingBuses[0]);
 
     if (!foundBus || !foundBus.busNumber) {
+      setPageTitle();
       clearBusSearchResults();
       stopRealtimeSubscription();
       clearLiveBusMarker();
@@ -1611,16 +1642,18 @@ searchForm.addEventListener('submit', async (event) => {
     }
 
     await showBusDetails(foundBus);
+    setConnectionError(false);
     searchMessage.textContent = `Showing details for bus ${foundBus.busNumber}.`;
   } catch (error) {
     console.error('Bus search failed', error);
+    setPageTitle();
     clearBusSearchResults();
     stopRealtimeSubscription();
     clearLiveBusMarker();
     resultCard.hidden = true;
     mapWrapper.hidden = true;
     activeSessionsContainer.hidden = true;
-    searchMessage.textContent = 'Bus not found.';
+    setConnectionError(true);
   }
 });
 
@@ -1632,6 +1665,7 @@ searchResultsList.addEventListener('click', (event) => {
     if (selectedBus) {
       showBusDetails(selectedBus)
         .then(() => {
+          setConnectionError(false);
           searchMessage.textContent = `Showing details for bus ${selectedBus.busNumber}.`;
         })
         .catch((error) => {
@@ -1864,8 +1898,15 @@ async function initializeApp() {
     readyState: document.readyState
   });
 
-  await loadBusCatalog();
-  await loadBusSessionFromUrl();
+  try {
+    await loadBusCatalog();
+    await loadBusSessionFromUrl();
+  } catch (error) {
+    console.error('Application data initialization failed', error);
+    setConnectionError(true);
+  } finally {
+    hideLoadingIndicator();
+  }
 }
 
 function startApp() {

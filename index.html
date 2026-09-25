@@ -6,7 +6,11 @@
     <title>APSRTC Live</title>
     <meta
       name="description"
-      content="A simple MVP homepage for APSRTC Live bus tracking"
+      content="APSRTC Live is a free, crowdsourced bus tracker for Visakhapatnam with rider-submitted real-time GPS locations."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%F0%9F%9A%8C%3C/text%3E%3C/svg%3E"
     />
     <link
       rel="stylesheet"
@@ -17,6 +21,13 @@
   </head>
   <body>
     <main class="page-shell">
+      <div id="loadingIndicator" class="status-banner loading-banner" role="status">
+        Loading APSRTC Live...
+      </div>
+      <div id="connectionError" class="status-banner error-banner" role="alert" hidden>
+        We're having trouble connecting right now. Please try again in a moment.
+      </div>
+
       <section class="hero-card">
         <div class="hero-copy">
           <p class="eyebrow">Crowdsourced bus visibility</p>
@@ -195,6 +206,66 @@
         <div id="busList" class="bus-list"></div>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <nav class="footer-nav" aria-label="Site information">
+        <a href="#about">About</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#disclaimer">Disclaimer</a>
+        <a href="#contact">Contact</a>
+      </nav>
+
+      <div class="footer-grid">
+        <section id="about">
+          <h2>About APSRTC Live</h2>
+          <p>
+            APSRTC Live is a free, crowdsourced bus tracker for Visakhapatnam.
+            It helps riders know where their bus is in real time using
+            GPS data submitted by riders.
+          </p>
+          <p>
+            This is a community project and is not officially affiliated with
+            APSRTC.
+          </p>
+        </section>
+
+        <section id="how-it-works">
+          <h2>How it works</h2>
+          <p>
+            Search for your bus number to see its route and live location when
+            someone is sharing it. If you are currently riding, tap
+            “I'm on this bus” to help other riders.
+          </p>
+        </section>
+
+        <section id="privacy">
+          <h2>Privacy</h2>
+          <p>
+            Location data is collected only when you explicitly tap
+            “I'm on this bus”. It is shared temporarily, expires automatically,
+            is not linked to your personal identity, and is used only to show
+            live bus positions to other users.
+          </p>
+        </section>
+
+        <section id="disclaimer">
+          <h2>Disclaimer</h2>
+          <p>
+            This is a crowdsourced community tool. Location accuracy depends
+            on user participation and may not always be available or accurate.
+          </p>
+        </section>
+
+        <section id="contact">
+          <h2>Contact</h2>
+          <p>
+            Found an issue or have feedback?
+            <a href="mailto:feedback@example.com">Email feedback@example.com</a>.
+          </p>
+        </section>
+      </div>
+    </footer>
 
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
