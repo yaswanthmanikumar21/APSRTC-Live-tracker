@@ -222,6 +222,23 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       return { data: Array.isArray(data) ? data : [], error };
     },
 
+    async getBusSessionByCode(busCode) {
+      if (!busCode || !window.supabaseClient) {
+        return { data: null, error: null };
+      }
+
+      const { data, error } = await window.supabaseClient
+        .from('bus_location_shares')
+        .select('bus_number, bus_code')
+        .eq('bus_code', busCode)
+        .limit(1);
+
+      return {
+        data: Array.isArray(data) && data.length > 0 ? data[0] : null,
+        error
+      };
+    },
+
     async getActiveBusSharesForRoute(busNumber) {
       if (!busNumber || !window.supabaseClient) {
         return { data: [], error: new Error('A bus number is required to lookup active sessions.') };

@@ -21,6 +21,8 @@ const searchResultsMessage = document.getElementById('searchResultsMessage');
 const searchResultsList = document.getElementById('searchResultsList');
 const resultCard = document.getElementById('resultCard');
 const resultTitle = document.getElementById('resultTitle');
+const copyBusLinkBtn = document.getElementById('copyBusLinkBtn');
+const copyBusLinkMessage = document.getElementById('copyBusLinkMessage');
 const resultNumber = document.getElementById('resultNumber');
 const resultRoute = document.getElementById('resultRoute');
 const resultStart = document.getElementById('resultStart');
@@ -49,6 +51,7 @@ const defaultMapCenter = [17.6868, 83.2185];
 let map;
 let userLocationMarker;
 let liveBusMarker;
+let previousLiveBusPosition = null;
 let watchId = null;
 let locationTimer = null;
 let currentBusNumber = null;
@@ -340,6 +343,52 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+function getBusSessionUrl(busCode = currentBusSessionCode) {
+  const url = new URL(window.location.href);
+  if (busCode) {
+    url.searchParams.set('bus', busCode);
+  } else {
+    url.searchParams.delete('bus');
+  }
+  return url.toString();
+}
+
+function updateBusSessionUrl(busCode) {
+  if (!busCode || !window.history?.pushState) {
+    return;
+  }
+  window.history.pushState(
+    { busCode },
+    '',
+    getBusSessionUrl(busCode)
+  );
+}
+
+function createBusMapIcon(bearing = 0) {
+  return L.divIcon({
+    className: 'live-bus-icon',
+    html: `<span style="transform: rotate(${bearing}deg)">🚌</span>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18]
+  });
+}
+
+function getTravelBearing(previousPosition, currentPosition) {
+  if (!previousPosition) {
+    return 0;
+  }
+
+  const latitude1 = previousPosition[0] * Math.PI / 180;
+  const latitude2 = currentPosition[0] * Math.PI / 180;
+  const longitudeDelta = (currentPosition[1] - previousPosition[1]) * Math.PI / 180;
+  const y = Math.sin(longitudeDelta) * Math.cos(latitude2);
+  const x =
+    Math.cos(latitude1) * Math.sin(latitude2) -
+    Math.sin(latitude1) * Math.cos(latitude2) * Math.cos(longitudeDelta);
+
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
 const capacityLabels = {
@@ -649,12 +698,64 @@ function selectActiveBusSession(busNumber, busCode) {
   currentBusSessionCode = busCode;
   resultSessionCode.textContent = busCode || '-';
   resultNumber.textContent = busNumber;
+  updateBusSessionUrl(busCode);
   startRealtimeForBus(busNumber, busCode);
 
   if (activeSessionsList) {
     Array.from(activeSessionsList.querySelectorAll('.session-button')).forEach((button) => {
       button.classList.toggle('selected', button.dataset.busCode === busCode);
     });
+  }
+
+  async function loadBusSessionFromUrl() {
+    const busCode = new URLSearchParams(window.location.search).get('bus');
+    if (!busCode || !window.supabaseHelpers) {
+      return;
+    }
+
+    try {
+      const { data: session, error: sessionError } =
+        await window.supabaseHelpers.getBusSessionByCode(busCode);
+
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      if (!session?.bus_number) {
+        searchMessage.textContent = 'The shared bus session could not be found.';
+        return;
+      }
+
+      const { data: buses, error: busError } =
+        await window.supabaseHelpers.getBusByNumber(session.bus_number);
+
+      if (busError) {
+        throw busError;
+      }
+
+      const matchingBus = (Array.isArray(buses) ? buses : []).find(
+        (bus) => String(bus.bus_number) === String(session.bus_number)
+      );
+
+      if (!matchingBus) {
+        searchMessage.textContent = 'The shared bus route could not be found.';
+        return;
+      }
+
+      const normalizedBus = normalizeBusRecord(matchingBus);
+      if (!normalizedBus) {
+        searchMessage.textContent = 'The shared bus route could not be loaded.';
+        return;
+      }
+
+      await showBusDetails(normalizedBus);
+      selectActiveBusSession(session.bus_number, busCode);
+      searchMessage.textContent =
+        `Showing shared bus session ${busCode}.`;
+    } catch (error) {
+      console.error('Failed to load shared bus session', error);
+      searchMessage.textContent = 'The shared bus link could not be loaded.';
+    }
   }
 }
 
@@ -1107,6 +1208,7 @@ function clearLiveBusMarker() {
     map.removeLayer(liveBusMarker);
   }
   liveBusMarker = null;
+  previousLiveBusPosition = null;
 }
 
 function stopRealtimeSubscription() {
@@ -1183,14 +1285,22 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   }
 
   const currentPosition = [row.latitude, row.longitude];
+  const travelBearing = getTravelBearing(
+    previousLiveBusPosition,
+    currentPosition
+  );
   const markerAlreadyExists = Boolean(liveBusMarker);
 
   if (!liveBusMarker) {
-    liveBusMarker = L.marker(currentPosition).addTo(map);
+    liveBusMarker = L.marker(currentPosition, {
+      icon: createBusMapIcon(travelBearing)
+    }).addTo(map);
     liveBusMarker.bindPopup('🚌 Live Bus Location');
   } else {
     liveBusMarker.setLatLng(currentPosition);
+    liveBusMarker.setIcon(createBusMapIcon(travelBearing));
   }
+  previousLiveBusPosition = currentPosition;
 
   if (liveMessage) {
     startBusLocationTicker(liveMessage, liveBusUpdatedAt);
@@ -1498,6 +1608,27 @@ activeSessionsList.addEventListener('click', (event) => {
   selectActiveBusSession(busNumber, busCode);
 });
 
+copyBusLinkBtn.addEventListener('click', async () => {
+  if (!currentBusSessionCode) {
+    copyBusLinkMessage.textContent = 'Select a specific bus first.';
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(
+      getBusSessionUrl(currentBusSessionCode)
+    );
+    copyBusLinkMessage.textContent = 'Link copied!';
+    window.setTimeout(() => {
+      copyBusLinkMessage.textContent = '';
+    }, 2000);
+  } catch (error) {
+    console.error('Failed to copy bus link', error);
+    copyBusLinkMessage.textContent =
+      'Could not copy the link. Please copy it from the address bar.';
+  }
+});
+
 capacityButtons.forEach((button) => {
   button.addEventListener('click', async () => {
     const selectedStatus = button.dataset.capacityStatus;
@@ -1680,3 +1811,4 @@ window.addEventListener('beforeunload', () => {
 initMap();
 renderBusCards();
 loadBusCatalog();
+loadBusSessionFromUrl();

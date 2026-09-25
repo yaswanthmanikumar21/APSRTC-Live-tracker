@@ -115,6 +115,28 @@ h1 {
   margin: 0;
 }
 
+.share-link-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.secondary-button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: #fff;
+  color: var(--primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.copy-link-message {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .sample-note {
   margin: 0;
   font-size: 0.8rem;
@@ -286,6 +308,20 @@ h1 {
   margin: 0 0 8px;
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+.live-bus-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.live-bus-icon span {
+  display: block;
 }
 
 .map-container {
