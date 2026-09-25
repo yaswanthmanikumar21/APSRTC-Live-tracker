@@ -369,9 +369,27 @@ function updateBusSessionUrl(busCode) {
 function createBusMapIcon(bearing = 0) {
   return L.divIcon({
     className: 'live-bus-icon',
-    html: `<span style="transform: rotate(${bearing}deg)">🚌</span>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18]
+    html: `
+      <span class="live-bus-icon__badge">
+        <svg
+          class="live-bus-icon__svg"
+          viewBox="0 0 48 48"
+          role="img"
+          aria-label="Live bus"
+        >
+          <circle cx="24" cy="24" r="20"></circle>
+          <g transform="rotate(${bearing} 24 24)">
+            <path class="live-bus-icon__direction" d="M24 2 L29 11 L19 11 Z"></path>
+            <path class="live-bus-icon__bus" d="M15 16 C15 13.8 16.8 12 19 12 H29 C31.2 12 33 13.8 33 16 V31 C33 32.1 32.1 33 31 33 H17 C15.9 33 15 32.1 15 31 Z"></path>
+            <path class="live-bus-icon__window" d="M18 16 H30 V22 H18 Z"></path>
+            <circle class="live-bus-icon__wheel" cx="19" cy="29" r="2"></circle>
+            <circle class="live-bus-icon__wheel" cx="29" cy="29" r="2"></circle>
+          </g>
+        </svg>
+      </span>
+    `,
+    iconSize: [48, 48],
+    iconAnchor: [24, 24]
   });
 }
 
@@ -706,36 +724,61 @@ function selectActiveBusSession(busNumber, busCode) {
       button.classList.toggle('selected', button.dataset.busCode === busCode);
     });
   }
+}
 
-  async function loadBusSessionFromUrl() {
+async function loadBusSessionFromUrl() {
     const busCode = new URLSearchParams(window.location.search).get('bus');
-    if (!busCode || !window.supabaseHelpers) {
+    console.log('loadBusSessionFromUrl: URL bus parameter', {
+      busCode,
+      found: Boolean(busCode)
+    });
+
+    if (!busCode) {
+      return;
+    }
+
+    if (!window.supabaseHelpers) {
+      console.error('loadBusSessionFromUrl: Supabase helpers are not ready');
+      searchMessage.textContent = 'The shared bus link could not be loaded.';
       return;
     }
 
     try {
-      const { data: session, error: sessionError } =
+      const sessionResult =
         await window.supabaseHelpers.getBusSessionByCode(busCode);
+      console.log('loadBusSessionFromUrl: session lookup completed', {
+        busCode,
+        data: sessionResult.data,
+        error: sessionResult.error
+      });
 
-      if (sessionError) {
-        throw sessionError;
+      if (sessionResult.error) {
+        throw sessionResult.error;
       }
 
+      const session = sessionResult.data;
       if (!session?.bus_number) {
         searchMessage.textContent = 'The shared bus session could not be found.';
         return;
       }
 
-      const { data: buses, error: busError } =
+      const busResult =
         await window.supabaseHelpers.getBusByNumber(session.bus_number);
+      console.log('loadBusSessionFromUrl: bus lookup completed', {
+        busNumber: session.bus_number,
+        data: busResult.data,
+        error: busResult.error
+      });
 
-      if (busError) {
-        throw busError;
+      if (busResult.error) {
+        throw busResult.error;
       }
 
-      const matchingBus = (Array.isArray(buses) ? buses : []).find(
-        (bus) => String(bus.bus_number) === String(session.bus_number)
-      );
+      const matchingBus = (Array.isArray(busResult.data) ? busResult.data : [])
+        .find((bus) =>
+          String(bus.bus_number).trim().toLowerCase() ===
+          String(session.bus_number).trim().toLowerCase()
+        );
 
       if (!matchingBus) {
         searchMessage.textContent = 'The shared bus route could not be found.';
@@ -749,15 +792,18 @@ function selectActiveBusSession(busNumber, busCode) {
       }
 
       await showBusDetails(normalizedBus);
+      console.log('loadBusSessionFromUrl: showBusDetails completed', {
+        busNumber: normalizedBus.busNumber,
+        busCode
+      });
+
       selectActiveBusSession(session.bus_number, busCode);
-      searchMessage.textContent =
-        `Showing shared bus session ${busCode}.`;
+      searchMessage.textContent = `Showing shared bus session ${busCode}.`;
     } catch (error) {
       console.error('Failed to load shared bus session', error);
       searchMessage.textContent = 'The shared bus link could not be loaded.';
     }
   }
-}
 
 function clearActiveBusSessions() {
   clearNearbyBusTimers();
@@ -1810,5 +1856,18 @@ window.addEventListener('beforeunload', () => {
 
 initMap();
 renderBusCards();
-loadBusCatalog();
-loadBusSessionFromUrl();
+
+async function initializeApp() {
+  console.log('initializeApp: Supabase client and DOM are ready', {
+    hasSupabaseClient: Boolean(window.supabaseClient),
+    hasSupabaseHelpers: Boolean(window.supabaseHelpers),
+    readyState: document.readyState
+  });
+
+  await loadBusCatalog();
+  await loadBusSessionFromUrl();
+}
+
+initializeApp().catch((error) => {
+  console.error('Application initialization failed', error);
+});

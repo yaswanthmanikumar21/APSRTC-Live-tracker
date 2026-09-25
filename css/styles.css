@@ -316,12 +316,46 @@ h1 {
   justify-content: center;
   background: transparent;
   border: 0;
-  font-size: 30px;
-  line-height: 1;
+  overflow: visible;
 }
 
-.live-bus-icon span {
+.live-bus-icon__badge {
   display: block;
+  width: 48px;
+  height: 48px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
+}
+
+.live-bus-icon__svg {
+  display: block;
+  width: 48px;
+  height: 48px;
+}
+
+.live-bus-icon__svg circle:first-child {
+  fill: #1769aa;
+  stroke: #ffffff;
+  stroke-width: 3;
+}
+
+.live-bus-icon__direction {
+  fill: #ffffff;
+}
+
+.live-bus-icon__bus {
+  fill: #ffffff;
+  stroke: #0d4775;
+  stroke-width: 1.5;
+}
+
+.live-bus-icon__window {
+  fill: #8fd3ff;
+  stroke: #0d4775;
+  stroke-width: 1;
+}
+
+.live-bus-icon__wheel {
+  fill: #0d4775;
 }
 
 .map-container {
