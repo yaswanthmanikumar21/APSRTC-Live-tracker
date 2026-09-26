@@ -189,6 +189,38 @@ h1 {
   gap: 6px;
 }
 
+.live-status-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.live-status-panel h4 {
+  margin: 0 0 10px;
+  color: var(--primary);
+}
+
+.live-status-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.live-status-list dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.live-status-list dd {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
 .stop-item {
   display: flex;
   align-items: center;
@@ -508,6 +540,10 @@ h1 {
   }
 
   .bus-list {
+    grid-template-columns: 1fr;
+  }
+
+  .live-status-list {
     grid-template-columns: 1fr;
   }
 

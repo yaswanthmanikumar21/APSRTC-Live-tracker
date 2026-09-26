@@ -32,6 +32,9 @@ const resultDestination = document.getElementById('resultDestination');
 const resultStatus = document.getElementById('resultStatus');
 const resultSessionCode = document.getElementById('resultSessionCode');
 const resultStops = document.getElementById('resultStops');
+const liveSpeed = document.getElementById('liveSpeed');
+const liveDirection = document.getElementById('liveDirection');
+const liveMovement = document.getElementById('liveMovement');
 const capacityStatus = document.getElementById('capacityStatus');
 const capacityMessage = document.getElementById('capacityMessage');
 const capacityButtons = document.querySelectorAll('[data-capacity-status]');
@@ -54,6 +57,10 @@ let map;
 let userLocationMarker;
 let liveBusMarker;
 let previousLiveBusPosition = null;
+let previousLiveStatusReading = null;
+let liveStatusLastMovedAt = null;
+let liveStatusDirection = null;
+let liveStatusTicker = null;
 let watchId = null;
 let locationTimer = null;
 let currentBusNumber = null;
@@ -431,6 +438,124 @@ function getTravelBearing(previousPosition, currentPosition) {
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
+function getCompassDirection(bearing) {
+  const directions = [
+    'North',
+    'North-East',
+    'East',
+    'South-East',
+    'South',
+    'South-West',
+    'West',
+    'North-West'
+  ];
+
+  return directions[Math.round(bearing / 45) % directions.length];
+}
+
+function renderLiveMovementStatus() {
+  if (!liveMovement) {
+    return;
+  }
+
+  if (!liveStatusLastMovedAt) {
+    liveMovement.textContent = 'Waiting for movement data.';
+    return;
+  }
+
+  const secondsSinceMovement = Math.max(
+    0,
+    Math.floor((Date.now() - liveStatusLastMovedAt) / 1000)
+  );
+
+  liveMovement.textContent = secondsSinceMovement >= 120
+    ? 'Bus appears stationary'
+    : `Last moved: ${secondsSinceMovement} seconds ago`;
+}
+
+function startLiveStatusTicker() {
+  if (liveStatusTicker) {
+    return;
+  }
+
+  liveStatusTicker = window.setInterval(
+    renderLiveMovementStatus,
+    1000
+  );
+}
+
+function resetLiveStatus() {
+  previousLiveStatusReading = null;
+  liveStatusLastMovedAt = null;
+  liveStatusDirection = null;
+
+  if (liveSpeed) {
+    liveSpeed.textContent = 'Calculating...';
+  }
+  if (liveDirection) {
+    liveDirection.textContent = 'Calculating...';
+  }
+
+  renderLiveMovementStatus();
+}
+
+function updateLiveStatusFromRow(latitude, longitude, updatedAt) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return;
+  }
+
+  const previousReading = previousLiveStatusReading;
+  const currentReading = {
+    latitude,
+    longitude,
+    timestamp: updatedAt
+  };
+
+  if (!previousReading) {
+    previousLiveStatusReading = currentReading;
+    startLiveStatusTicker();
+    return;
+  }
+
+  const elapsedMilliseconds = updatedAt - previousReading.timestamp;
+  if (elapsedMilliseconds <= 0) {
+    return;
+  }
+
+  const distanceKm = getDistanceKm(
+    previousReading.latitude,
+    previousReading.longitude,
+    latitude,
+    longitude
+  );
+  const elapsedHours = elapsedMilliseconds / 3600000;
+
+  if (liveSpeed) {
+    liveSpeed.textContent =
+      `~${(distanceKm / elapsedHours).toFixed(1)} km/h`;
+  }
+
+  if (distanceKm >= 0.005) {
+    const bearing = getTravelBearing(
+      [previousReading.latitude, previousReading.longitude],
+      [latitude, longitude]
+    );
+    liveStatusDirection = `Heading ${getCompassDirection(bearing)}`;
+    liveStatusLastMovedAt = updatedAt;
+  } else if (!liveStatusLastMovedAt) {
+    liveStatusLastMovedAt = previousReading.timestamp;
+  }
+
+  if (liveDirection) {
+    liveDirection.textContent =
+      liveStatusDirection || 'Not moving';
+  }
+
+  previousLiveStatusReading = currentReading;
+  renderLiveMovementStatus();
+  startLiveStatusTicker();
+}
+
 const capacityLabels = {
   empty: '🟢 Empty',
   half_full: '🟡 Half Full',
@@ -738,6 +863,7 @@ function selectActiveBusSession(busNumber, busCode) {
   currentBusSessionCode = busCode;
   resultSessionCode.textContent = busCode || '-';
   resultNumber.textContent = busNumber;
+  resetLiveStatus();
   updateBusSessionUrl(busCode);
   startRealtimeForBus(busNumber, busCode);
 
@@ -1347,6 +1473,10 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   lastSeenBusUpdatedAt = incomingUpdatedAt;
   liveBusUpdatedAt = row.updated_at;
 
+  const latitude = Number(row.latitude);
+  const longitude = Number(row.longitude);
+  updateLiveStatusFromRow(latitude, longitude, updatedAt);
+
   if (row.bus_code) {
     currentBusSessionCode = row.bus_code;
     if (resultSessionCode) {
@@ -1354,7 +1484,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
     }
   }
 
-  const currentPosition = [row.latitude, row.longitude];
+  const currentPosition = [latitude, longitude];
   const travelBearing = getTravelBearing(
     previousLiveBusPosition,
     currentPosition
@@ -1519,6 +1649,7 @@ async function showBusDetails(bus) {
     return;
   }
 
+  resetLiveStatus();
   resultTitle.textContent = `Bus ${normalizedBus.busNumber}`;
   setPageTitle(normalizedBus.busNumber);
   resultNumber.textContent = normalizedBus.busNumber;
