@@ -96,70 +96,81 @@
               </div>
             </div>
 
-            <dl class="detail-list">
-              <div class="detail-item">
-                <dt>Bus number</dt>
-                <dd id="resultNumber">-</dd>
+            <div class="result-tabs">
+              <div class="tab-list" role="tablist" aria-label="Bus information">
+                <button id="detailsTab" class="result-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="detailsPanel" data-result-tab="details">Details</button>
+                <button id="liveTab" class="result-tab" type="button" role="tab" aria-selected="false" aria-controls="livePanel" data-result-tab="live">Live Status</button>
+                <button id="capacityTab" class="result-tab" type="button" role="tab" aria-selected="false" aria-controls="capacityPanelTab" data-result-tab="capacity">Capacity</button>
               </div>
-              <div class="detail-item">
-                <dt>Route</dt>
-                <dd id="resultRoute">-</dd>
-              </div>
-              <div class="detail-item">
-                <dt>Starting point</dt>
-                <dd id="resultStart">-</dd>
-              </div>
-              <div class="detail-item">
-                <dt>Destination</dt>
-                <dd id="resultDestination">-</dd>
-              </div>
-              <div class="detail-item">
-                <dt>Stops</dt>
-                <dd>
-                  <ul id="resultStops" class="stop-list"></ul>
-                  <section class="live-status-panel" aria-labelledby="liveStatusHeading">
-                    <h4 id="liveStatusHeading">Live Status</h4>
-                    <dl class="live-status-list" aria-live="polite">
-                      <div>
-                        <dt>Speed</dt>
-                        <dd id="liveSpeed">Calculating...</dd>
-                      </div>
-                      <div>
-                        <dt>Direction</dt>
-                        <dd id="liveDirection">Calculating...</dd>
-                      </div>
-                      <div>
-                        <dt>Movement</dt>
-                        <dd id="liveMovement">Waiting for movement data.</dd>
-                      </div>
-                    </dl>
-                  </section>
-                </dd>
-              </div>
-              <div class="detail-item">
-                <dt>Tracking status</dt>
-                <dd id="resultStatus">-</dd>
-              </div>
-              <div class="detail-item">
-                <dt>Bus session</dt>
-                <dd id="resultSessionCode">-</dd>
-              </div>
-            </dl>
 
-            <div id="capacityPanel" class="capacity-panel">
-              <h4 id="capacityStatus">Capacity: Not reported yet</h4>
-              <div class="capacity-actions" role="group" aria-label="Report bus capacity">
-                <button type="button" class="capacity-button" data-capacity-status="empty">
-                  🟢 Empty
-                </button>
-                <button type="button" class="capacity-button" data-capacity-status="half_full">
-                  🟡 Half Full
-                </button>
-                <button type="button" class="capacity-button" data-capacity-status="full">
-                  🔴 Full
-                </button>
-              </div>
-              <p id="capacityMessage" class="capacity-message" aria-live="polite"></p>
+              <section id="detailsPanel" class="tab-panel" role="tabpanel" aria-labelledby="detailsTab" data-result-panel="details">
+                <dl class="detail-list">
+                  <div class="detail-item">
+                    <dt>Bus number</dt>
+                    <dd id="resultNumber">-</dd>
+                  </div>
+                  <div class="detail-item">
+                    <dt>Route</dt>
+                    <dd id="resultRoute">-</dd>
+                  </div>
+                  <div class="detail-item">
+                    <dt>Starting point</dt>
+                    <dd id="resultStart">-</dd>
+                  </div>
+                  <div class="detail-item">
+                    <dt>Destination</dt>
+                    <dd id="resultDestination">-</dd>
+                  </div>
+                  <div class="detail-item">
+                    <dt>Stops</dt>
+                    <dd><ul id="resultStops" class="stop-list"></ul></dd>
+                  </div>
+                  <div class="detail-item">
+                    <dt>Tracking status</dt>
+                    <dd id="resultStatus">-</dd>
+                  </div>
+                  <div class="detail-item">
+                    <dt>Bus session</dt>
+                    <dd id="resultSessionCode">-</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section id="livePanel" class="tab-panel" role="tabpanel" aria-labelledby="liveTab" data-result-panel="live" hidden>
+                <section class="live-status-panel" aria-labelledby="liveStatusHeading">
+                  <h4 id="liveStatusHeading">Live Status</h4>
+                  <dl class="live-status-list" aria-live="polite">
+                    <div>
+                      <dt>Speed</dt>
+                      <dd id="liveSpeed">Calculating...</dd>
+                    </div>
+                    <div>
+                      <dt>Direction</dt>
+                      <dd id="liveDirection">Calculating...</dd>
+                    </div>
+                    <div>
+                      <dt>Movement</dt>
+                      <dd id="liveMovement">Waiting for movement data.</dd>
+                    </div>
+                  </dl>
+                </section>
+                <div id="mapWrapper" class="map-wrapper" hidden>
+                  <p id="liveLocationMessage" class="map-note"></p>
+                  <div id="map" class="map-container" aria-label="Bus map location"></div>
+                </div>
+              </section>
+
+              <section id="capacityPanelTab" class="tab-panel" role="tabpanel" aria-labelledby="capacityTab" data-result-panel="capacity" hidden>
+                <div id="capacityPanel" class="capacity-panel">
+                  <h4 id="capacityStatus">Capacity: Not reported yet</h4>
+                  <div class="capacity-actions" role="group" aria-label="Report bus capacity">
+                    <button type="button" class="capacity-button" data-capacity-status="empty">🟢 Empty</button>
+                    <button type="button" class="capacity-button" data-capacity-status="half_full">🟡 Half Full</button>
+                    <button type="button" class="capacity-button" data-capacity-status="full">🔴 Full</button>
+                  </div>
+                  <p id="capacityMessage" class="capacity-message" aria-live="polite"></p>
+                </div>
+              </section>
             </div>
 
             <div class="share-section">
@@ -185,7 +196,7 @@
             </div>
 
             <div id="activeSessionsContainer" class="active-sessions-container" hidden>
-              <h4>Active buses on this route</h4>
+              <h4 id="activeSessionsHeading">Active buses on this route</h4>
               <p id="activeSessionsMessage" class="active-sessions-message"></p>
               <ul id="activeSessionsList" class="active-session-list"></ul>
             </div>
@@ -195,21 +206,15 @@
               <p id="locationStatusText" class="location-status">
                 Location sharing is inactive.
               </p>
-              <p><strong>Latitude:</strong> <span id="latitudeValue">-</span></p>
-              <p><strong>Longitude:</strong> <span id="longitudeValue">-</span></p>
-              <p><strong>Last location update:</strong> <span id="lastUpdateValue">-</span></p>
-              <p
-                id="gpsDebugText"
-                class="location-status"
-                style="margin-top: 0.75rem; font-size: 0.9rem; white-space: pre-line;"
-              >
-                GPS debug: waiting to start.
-              </p>
-            </div>
-
-            <div id="mapWrapper" class="map-wrapper" hidden>
-              <p id="liveLocationMessage" class="map-note"></p>
-              <div id="map" class="map-container" aria-label="Bus map location"></div>
+              <details class="technical-details">
+                <summary>Show technical details</summary>
+                <p><strong>Latitude:</strong> <span id="latitudeValue">-</span></p>
+                <p><strong>Longitude:</strong> <span id="longitudeValue">-</span></p>
+                <p><strong>Last location update:</strong> <span id="lastUpdateValue">-</span></p>
+                <p id="gpsDebugText" class="location-status">
+                  GPS debug: waiting to start.
+                </p>
+              </details>
             </div>
           </div>
 
@@ -236,62 +241,44 @@
 
     <footer class="site-footer">
       <nav class="footer-nav" aria-label="Site information">
-        <a href="#about">About</a>
-        <a href="#how-it-works">How it works</a>
-        <a href="#privacy">Privacy</a>
-        <a href="#disclaimer">Disclaimer</a>
-        <a href="#contact">Contact</a>
+        <details class="footer-disclosure">
+          <summary>About</summary>
+          <p>
+            APSRTC Live is a free, crowdsourced Visakhapatnam bus tracker using
+            rider-submitted GPS data. It is a community project, not officially
+            affiliated with APSRTC.
+          </p>
+        </details>
+        <details class="footer-disclosure">
+          <summary>How it works</summary>
+          <p>
+            Search for your bus to see its live location when someone shares it.
+            If you are riding, tap “I'm on this bus” to help other riders.
+          </p>
+        </details>
+        <details class="footer-disclosure">
+          <summary>Privacy</summary>
+          <p>
+            Location is collected only when a user taps “I'm on this bus”,
+            shared temporarily, expires automatically, and is not linked to
+            personal identity. It is used only to show bus positions.
+          </p>
+        </details>
+        <details class="footer-disclosure">
+          <summary>Disclaimer</summary>
+          <p>
+            This crowdsourced community tool depends on user participation;
+            location may not always be available or accurate.
+          </p>
+        </details>
+        <details class="footer-disclosure">
+          <summary>Contact</summary>
+          <p>
+            Report issues or send feedback to
+            <a href="mailto:feedback@example.com">feedback@example.com</a>.
+          </p>
+        </details>
       </nav>
-
-      <div class="footer-grid">
-        <section id="about">
-          <h2>About APSRTC Live</h2>
-          <p>
-            APSRTC Live is a free, crowdsourced bus tracker for Visakhapatnam.
-            It helps riders know where their bus is in real time using
-            GPS data submitted by riders.
-          </p>
-          <p>
-            This is a community project and is not officially affiliated with
-            APSRTC.
-          </p>
-        </section>
-
-        <section id="how-it-works">
-          <h2>How it works</h2>
-          <p>
-            Search for your bus number to see its route and live location when
-            someone is sharing it. If you are currently riding, tap
-            “I'm on this bus” to help other riders.
-          </p>
-        </section>
-
-        <section id="privacy">
-          <h2>Privacy</h2>
-          <p>
-            Location data is collected only when you explicitly tap
-            “I'm on this bus”. It is shared temporarily, expires automatically,
-            is not linked to your personal identity, and is used only to show
-            live bus positions to other users.
-          </p>
-        </section>
-
-        <section id="disclaimer">
-          <h2>Disclaimer</h2>
-          <p>
-            This is a crowdsourced community tool. Location accuracy depends
-            on user participation and may not always be available or accurate.
-          </p>
-        </section>
-
-        <section id="contact">
-          <h2>Contact</h2>
-          <p>
-            Found an issue or have feedback?
-            <a href="mailto:feedback@example.com">Email feedback@example.com</a>.
-          </p>
-        </section>
-      </div>
     </footer>
 
     <script

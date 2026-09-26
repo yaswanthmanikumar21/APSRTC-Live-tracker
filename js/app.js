@@ -41,6 +41,7 @@ const capacityStatus = document.getElementById('capacityStatus');
 const capacityMessage = document.getElementById('capacityMessage');
 const capacityButtons = document.querySelectorAll('[data-capacity-status]');
 const activeSessionsContainer = document.getElementById('activeSessionsContainer');
+const activeSessionsHeading = document.getElementById('activeSessionsHeading');
 const activeSessionsMessage = document.getElementById('activeSessionsMessage');
 const activeSessionsList = document.getElementById('activeSessionsList');
 const mapWrapper = document.getElementById('mapWrapper');
@@ -101,6 +102,23 @@ function setPageTitle(busNumber = null) {
   document.title = busNumber
     ? `Bus ${busNumber} - APSRTC Live`
     : 'APSRTC Live';
+}
+
+function setResultTab(tabName) {
+  document.querySelectorAll('[data-result-tab]').forEach((tab) => {
+    const isSelected = tab.dataset.resultTab === tabName;
+    tab.classList.toggle('is-active', isSelected);
+    tab.setAttribute('aria-selected', String(isSelected));
+    tab.tabIndex = isSelected ? 0 : -1;
+  });
+
+  document.querySelectorAll('[data-result-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.resultPanel !== tabName;
+  });
+
+  if (tabName === 'live' && map) {
+    window.requestAnimationFrame(() => map.invalidateSize());
+  }
 }
 
 function setConnectionError(isVisible) {
@@ -725,10 +743,12 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
     rows: activeBusSessions
   });
   activeSessionsList.innerHTML = '';
-  activeSessionsContainer.hidden = false;
+  activeSessionsContainer.hidden = activeBusSessions.length <= 1;
+  if (activeSessionsHeading) {
+    activeSessionsHeading.textContent = 'Active buses on this route';
+  }
 
-  if (!activeBusSessions.length) {
-    activeSessionsMessage.textContent = routeLabel || 'No active buses currently sharing live for this route.';
+  if (activeBusSessions.length <= 1) {
     return;
   }
 
@@ -831,6 +851,9 @@ function renderNearbyBusSessions(sessionRows) {
 
   activeSessionsList.innerHTML = '';
   activeSessionsContainer.hidden = false;
+  if (activeSessionsHeading) {
+    activeSessionsHeading.textContent = 'Nearby active buses';
+  }
   activeSessionsMessage.textContent = sessionRows.length
     ? 'Nearby active buses'
     : 'No active buses were found near your location.';
@@ -932,6 +955,7 @@ function selectActiveBusSession(busNumber, busCode) {
   }
 
   currentBusSessionCode = busCode;
+  setResultTab('live');
   resultSessionCode.textContent = busCode || '-';
   resultNumber.textContent = busNumber;
   const selectedBusKey = busCode || busNumber;
@@ -1797,6 +1821,7 @@ async function showBusDetails(bus) {
     return;
   }
 
+  setResultTab('details');
   resetLiveStatus();
   resultTitle.textContent = `Bus ${normalizedBus.busNumber}`;
   setPageTitle(normalizedBus.busNumber);
@@ -1936,6 +1961,44 @@ searchForm.addEventListener('submit', async (event) => {
     setConnectionError(true);
   }
 });
+
+document.querySelectorAll('[data-result-tab]').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    setResultTab(tab.dataset.resultTab);
+  });
+});
+
+document.querySelector('[role="tablist"]')?.addEventListener(
+  'keydown',
+  (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+
+    const tabs = Array.from(
+      document.querySelectorAll('[data-result-tab]')
+    );
+    const currentIndex = tabs.indexOf(document.activeElement);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    event.preventDefault();
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex + tabs.length - 1) % tabs.length;
+    } else if (event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % tabs.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = tabs.length - 1;
+    }
+
+    tabs[nextIndex].focus();
+    setResultTab(tabs[nextIndex].dataset.resultTab);
+  }
+);
 
 recentSearchChips.addEventListener('click', (event) => {
   const chip = event.target.closest('[data-bus-number]');
