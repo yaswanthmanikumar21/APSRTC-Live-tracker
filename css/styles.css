@@ -111,6 +111,41 @@ h1 {
   background: var(--primary-dark);
 }
 
+.recent-searches {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.recent-searches-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.recent-search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recent-search-chip {
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recent-search-chip:hover {
+  background: #e8f0ff;
+}
+
 .result-card {
   margin-top: 18px;
   border: 1px solid var(--border);

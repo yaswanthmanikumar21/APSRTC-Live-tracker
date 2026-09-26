@@ -5,6 +5,8 @@ let busSearchResults = [];
 
 const busList = document.getElementById('busList');
 const searchForm = document.getElementById('searchForm');
+const recentSearches = document.getElementById('recentSearches');
+const recentSearchChips = document.getElementById('recentSearchChips');
 const findNearbyBtn = document.getElementById('findNearbyBtn');
 const toggleAddBusBtn = document.getElementById('toggleAddBusBtn');
 const addBusSection = document.getElementById('addBusSection');
@@ -57,6 +59,9 @@ let map;
 let userLocationMarker;
 let liveBusMarker;
 let previousLiveBusPosition = null;
+let liveBusTrail = [];
+let liveBusTrailSegments = [];
+let liveBusTrailKey = null;
 let previousLiveStatusReading = null;
 let liveStatusLastMovedAt = null;
 let liveStatusDirection = null;
@@ -188,6 +193,72 @@ function releaseWakeLock() {
 
 function getActiveBusCatalog() {
   return Array.isArray(busCatalog) ? busCatalog : [];
+}
+
+const RECENT_BUSES_STORAGE_KEY = 'apsrtcLive.recentBuses';
+const MAX_RECENT_BUSES = 5;
+
+function getRecentBusNumbers() {
+  try {
+    const storedBuses = JSON.parse(
+      window.localStorage.getItem(RECENT_BUSES_STORAGE_KEY) || '[]'
+    );
+
+    return Array.isArray(storedBuses)
+      ? storedBuses.filter(
+          (busNumber) =>
+            typeof busNumber === 'string' && busNumber.trim()
+        ).slice(0, MAX_RECENT_BUSES)
+      : [];
+  } catch (error) {
+    console.error('Could not read recently searched buses', error);
+    return [];
+  }
+}
+
+function renderRecentBusSearches() {
+  if (!recentSearches || !recentSearchChips) {
+    return;
+  }
+
+  const busNumbers = getRecentBusNumbers();
+  recentSearchChips.replaceChildren();
+  recentSearches.hidden = busNumbers.length === 0;
+
+  busNumbers.forEach((busNumber) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'recent-search-chip';
+    chip.dataset.busNumber = busNumber;
+    chip.textContent = busNumber;
+    chip.setAttribute('aria-label', `Search bus ${busNumber}`);
+    recentSearchChips.appendChild(chip);
+  });
+}
+
+function rememberSearchedBus(busNumber) {
+  const normalizedBusNumber = String(busNumber || '').trim();
+  if (!normalizedBusNumber) {
+    return;
+  }
+
+  const recentBusNumbers = getRecentBusNumbers().filter(
+    (recentBusNumber) =>
+      recentBusNumber.toLowerCase() !== normalizedBusNumber.toLowerCase()
+  );
+  recentBusNumbers.unshift(normalizedBusNumber);
+
+  try {
+    window.localStorage.setItem(
+      RECENT_BUSES_STORAGE_KEY,
+      JSON.stringify(recentBusNumbers.slice(0, MAX_RECENT_BUSES))
+    );
+  } catch (error) {
+    console.error('Could not save recently searched bus', error);
+    return;
+  }
+
+  renderRecentBusSearches();
 }
 
 function parseStopsInput(stopsText) {
@@ -863,6 +934,11 @@ function selectActiveBusSession(busNumber, busCode) {
   currentBusSessionCode = busCode;
   resultSessionCode.textContent = busCode || '-';
   resultNumber.textContent = busNumber;
+  const selectedBusKey = busCode || busNumber;
+  if (liveBusTrailKey && liveBusTrailKey !== selectedBusKey) {
+    clearLiveBusTrail();
+  }
+  liveBusTrailKey = selectedBusKey;
   resetLiveStatus();
   updateBusSessionUrl(busCode);
   startRealtimeForBus(busNumber, busCode);
@@ -1405,6 +1481,77 @@ function clearLiveBusMarker() {
   }
   liveBusMarker = null;
   previousLiveBusPosition = null;
+  clearLiveBusTrail();
+}
+
+function clearLiveBusTrail() {
+  if (map) {
+    liveBusTrailSegments.forEach((segment) => {
+      map.removeLayer(segment);
+    });
+  }
+
+  liveBusTrail = [];
+  liveBusTrailSegments = [];
+  liveBusTrailKey = null;
+}
+
+function renderLiveBusTrail() {
+  if (!map) {
+    return;
+  }
+
+  liveBusTrailSegments.forEach((segment) => {
+    map.removeLayer(segment);
+  });
+  liveBusTrailSegments = [];
+
+  for (let index = 1; index < liveBusTrail.length; index += 1) {
+    const ageRatio = liveBusTrail.length === 2
+      ? 1
+      : (index - 1) / (liveBusTrail.length - 2);
+    const segment = L.polyline(
+      [
+        liveBusTrail[index - 1].position,
+        liveBusTrail[index].position
+      ],
+      {
+        color: '#1e4ed8',
+        opacity: 0.18 + ageRatio * 0.77,
+        weight: 5,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }
+    ).addTo(map);
+
+    liveBusTrailSegments.push(segment);
+  }
+}
+
+function addLiveBusTrailPoint(position, timestamp, row) {
+  const busKey = row.bus_code || row.bus_number;
+  if (liveBusTrailKey && liveBusTrailKey !== busKey) {
+    clearLiveBusTrail();
+  }
+  liveBusTrailKey = busKey;
+
+  const lastPoint = liveBusTrail[liveBusTrail.length - 1];
+  if (
+    lastPoint &&
+    lastPoint.position[0] === position[0] &&
+    lastPoint.position[1] === position[1]
+  ) {
+    lastPoint.timestamp = timestamp;
+    return;
+  }
+
+  const trailCutoff = timestamp - 5 * 60 * 1000;
+  liveBusTrail = liveBusTrail.filter(
+    (point) => point.timestamp >= trailCutoff
+  );
+  liveBusTrail.push({ position, timestamp });
+  liveBusTrail = liveBusTrail.slice(-8);
+  renderLiveBusTrail();
 }
 
 function stopRealtimeSubscription() {
@@ -1501,6 +1648,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
     liveBusMarker.setIcon(createBusMapIcon(travelBearing));
   }
   previousLiveBusPosition = currentPosition;
+  addLiveBusTrailPoint(currentPosition, updatedAt, row);
 
   if (liveMessage) {
     startBusLocationTicker(liveMessage, liveBusUpdatedAt);
@@ -1660,6 +1808,7 @@ async function showBusDetails(bus) {
   resultSessionCode.textContent = currentBusSessionCode || '-';
   currentBusNumber = normalizedBus.busNumber;
   currentBusRoute = normalizedBus.routeName;
+  rememberSearchedBus(normalizedBus.busNumber);
   clearBusSearchResults();
 
   resultStops.innerHTML = '';
@@ -1786,6 +1935,17 @@ searchForm.addEventListener('submit', async (event) => {
     activeSessionsContainer.hidden = true;
     setConnectionError(true);
   }
+});
+
+recentSearchChips.addEventListener('click', (event) => {
+  const chip = event.target.closest('[data-bus-number]');
+  if (!chip) {
+    return;
+  }
+
+  const input = document.getElementById('busNumber');
+  input.value = chip.dataset.busNumber;
+  searchForm.requestSubmit();
 });
 
 searchResultsList.addEventListener('click', (event) => {
@@ -2022,6 +2182,7 @@ window.addEventListener('beforeunload', () => {
 async function initializeApp() {
   initMap();
   renderBusCards();
+  renderRecentBusSearches();
 
   console.log('initializeApp: Supabase client and DOM are ready', {
     hasSupabaseClient: Boolean(window.supabaseClient),
