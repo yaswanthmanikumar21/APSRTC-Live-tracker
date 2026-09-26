@@ -142,6 +142,45 @@ if (window.supabase && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       return { data, error };
     },
 
+    async getActiveBusNumbers() {
+      if (!window.supabaseClient) {
+        return {
+          data: [],
+          error: new Error('Supabase client is not available.')
+        };
+      }
+
+      const nowTime = Date.now();
+      const now = new Date(nowTime).toISOString();
+      const { data, error } = await window.supabaseClient
+        .from('bus_location_shares')
+        .select('bus_number, updated_at, expires_at')
+        .gt('expires_at', now);
+
+      if (error) {
+        return { data: [], error };
+      }
+
+      const activeBusNumbers = Array.from(
+        new Set(
+          (Array.isArray(data) ? data : [])
+            .filter((row) => {
+              if (!row.bus_number || !row.updated_at || !row.expires_at) {
+                return false;
+              }
+
+              const updatedAt = new Date(row.updated_at).getTime();
+              const expiresAt = new Date(row.expires_at).getTime();
+              return updatedAt <= nowTime && expiresAt > nowTime;
+            })
+            .map((row) => String(row.bus_number).trim())
+            .filter(Boolean)
+        )
+      );
+
+      return { data: activeBusNumbers, error: null };
+    },
+
     async createBus({ busNumber, route, startingPoint, destination, stops }) {
       if (!busNumber || !route || !startingPoint || !destination) {
         return { data: null, error: new Error('Please provide bus number, route, starting point, and destination.') };

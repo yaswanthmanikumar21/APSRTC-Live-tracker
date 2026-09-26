@@ -2,6 +2,8 @@ let busCatalog = [];
 let currentBusSessionCode = null;
 let activeBusSessions = [];
 let busSearchResults = [];
+let activeCatalogBusNumbers = new Set();
+let catalogLiveStatusAvailable = false;
 
 const busList = document.getElementById('busList');
 const homeLink = document.getElementById('homeLink');
@@ -263,6 +265,10 @@ function getActiveBusCatalog() {
   return Array.isArray(busCatalog) ? busCatalog : [];
 }
 
+function normalizeBusNumberKey(busNumber) {
+  return String(busNumber || '').trim().toLowerCase();
+}
+
 const RECENT_BUSES_STORAGE_KEY = 'apsrtcLive.recentBuses';
 const MAX_RECENT_BUSES = 5;
 
@@ -388,22 +394,75 @@ function renderBusCards() {
   }
 
   busesToRender.forEach((bus) => {
-    const card = document.createElement('article');
-    card.className = 'bus-card';
+    const card = document.createElement('button');
+    const isLiveNow = activeCatalogBusNumbers.has(
+      normalizeBusNumberKey(bus.busNumber)
+    );
+    const liveStatusText = catalogLiveStatusAvailable
+      ? isLiveNow
+        ? '🟢 Live now'
+        : '⚪ No live tracking'
+      : 'Live status unavailable';
 
-    card.innerHTML = `
-      <h3 class="bus-number">${bus.busNumber}</h3>
-      <p class="bus-route">Route: ${bus.routeName}</p>
-      <p class="bus-status">Status: ${bus.status}</p>
-    `;
+    card.type = 'button';
+    card.className = 'bus-card';
+    card.dataset.busNumber = bus.busNumber;
+    card.setAttribute(
+      'aria-label',
+      `Search bus ${bus.busNumber}. ${liveStatusText}.`
+    );
+
+    const number = document.createElement('span');
+    number.className = 'bus-number';
+    number.textContent = bus.busNumber;
+
+    const route = document.createElement('span');
+    route.className = 'bus-route';
+    route.textContent = `Route: ${bus.routeName}`;
+
+    const status = document.createElement('span');
+    status.className = 'bus-status';
+    status.textContent = liveStatusText;
+    status.classList.toggle('bus-status-live', isLiveNow);
+    status.classList.toggle(
+      'bus-status-unavailable',
+      !catalogLiveStatusAvailable
+    );
+
+    card.append(number, route, status);
 
     busList.appendChild(card);
   });
 }
 
+async function loadActiveCatalogBusNumbers() {
+  try {
+    const { data, error } =
+      await window.supabaseHelpers.getActiveBusNumbers();
+
+    if (error) {
+      console.error('Failed to load catalog live statuses', error);
+      activeCatalogBusNumbers = new Set();
+      catalogLiveStatusAvailable = false;
+      return;
+    }
+
+    activeCatalogBusNumbers = new Set(
+      (Array.isArray(data) ? data : []).map(normalizeBusNumberKey)
+    );
+    catalogLiveStatusAvailable = true;
+  } catch (error) {
+    console.error('Failed to load catalog live statuses', error);
+    activeCatalogBusNumbers = new Set();
+    catalogLiveStatusAvailable = false;
+  }
+}
+
 async function loadBusCatalog() {
   if (!window.supabaseHelpers) {
     busCatalog = [];
+    activeCatalogBusNumbers = new Set();
+    catalogLiveStatusAvailable = false;
     renderBusCards();
     setConnectionError(true);
     return;
@@ -421,6 +480,8 @@ async function loadBusCatalog() {
     const normalizedBuses = (data || [])
       .map((bus) => normalizeBusRecord(bus))
       .filter(Boolean);
+
+    await loadActiveCatalogBusNumbers();
 
     if (normalizedBuses.length > 0) {
       busCatalog = normalizedBuses;
@@ -2010,6 +2071,17 @@ searchForm.addEventListener('submit', async (event) => {
     activeSessionsContainer.hidden = true;
     setConnectionError(true);
   }
+});
+
+busList.addEventListener('click', (event) => {
+  const card = event.target.closest('[data-bus-number]');
+  if (!card || !busList.contains(card)) {
+    return;
+  }
+
+  const input = document.getElementById('busNumber');
+  input.value = card.dataset.busNumber;
+  searchForm.requestSubmit();
 });
 
 document.querySelectorAll('[data-result-tab]').forEach((tab) => {

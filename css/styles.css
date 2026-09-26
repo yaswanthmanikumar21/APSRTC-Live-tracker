@@ -614,16 +614,45 @@ h1 {
 }
 
 .bus-card {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px;
   background: #fbfdff;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.bus-card:hover {
+  border-color: #9bb7f2;
+  box-shadow: 0 6px 18px rgba(30, 78, 216, 0.1);
+  transform: translateY(-2px);
+}
+
+.bus-card:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .bus-number {
+  display: block;
   margin: 0 0 8px;
   font-size: 1.1rem;
   font-weight: 700;
+}
+
+.bus-card .bus-route,
+.bus-card .bus-status {
+  display: block;
 }
 
 .bus-route,
@@ -631,6 +660,15 @@ h1 {
   margin: 4px 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.bus-status-live {
+  color: #14804a;
+  font-weight: 700;
+}
+
+.bus-status-unavailable {
+  color: var(--muted);
 }
 
 .sr-only {
