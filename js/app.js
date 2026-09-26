@@ -4,6 +4,7 @@ let activeBusSessions = [];
 let busSearchResults = [];
 
 const busList = document.getElementById('busList');
+const homeLink = document.getElementById('homeLink');
 const searchForm = document.getElementById('searchForm');
 const recentSearches = document.getElementById('recentSearches');
 const recentSearchChips = document.getElementById('recentSearchChips');
@@ -131,6 +132,55 @@ function hideLoadingIndicator() {
   if (loadingIndicator) {
     loadingIndicator.hidden = true;
   }
+}
+
+function returnToHome() {
+  clearNearbyBusTimers();
+  nearbyBusLatitude = null;
+  nearbyBusLongitude = null;
+  stopRealtimeSubscription();
+  clearLiveBusMarker();
+  clearActiveBusSessions();
+  clearBusSearchResults();
+
+  const searchInput = document.getElementById('busNumber');
+  searchInput.value = '';
+
+  resultCard.hidden = true;
+  mapWrapper.hidden = true;
+  activeSessionsContainer.hidden = true;
+  setResultTab('details');
+  setPageTitle();
+  setConnectionError(false);
+  searchMessage.textContent =
+    'Search for a bus number to view live route details.';
+
+  resultNumber.textContent = '-';
+  resultRoute.textContent = '-';
+  resultStart.textContent = '-';
+  resultDestination.textContent = '-';
+  resultStatus.textContent = '-';
+  resultSessionCode.textContent = '-';
+  resultStops.replaceChildren();
+  renderCapacityStatus(null);
+  setCapacityMessage('');
+  resetLiveStatus();
+
+  if (!isSharingActive) {
+    currentBusSessionCode = null;
+    currentBusNumber = null;
+    currentBusRoute = null;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete('bus');
+  window.history.pushState(
+    {},
+    '',
+    `${url.pathname}${url.search}${url.hash}`
+  );
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderGpsDebug() {
@@ -2241,6 +2291,8 @@ window.addEventListener('beforeunload', () => {
   clearNearbyBusTimers();
   stopRealtimeSubscription();
 });
+
+homeLink.addEventListener('click', returnToHome);
 
 async function initializeApp() {
   initMap();

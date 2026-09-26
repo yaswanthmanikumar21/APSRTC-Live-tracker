@@ -76,6 +76,24 @@ h1 {
   font-size: clamp(2rem, 5vw, 3rem);
 }
 
+.home-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-link:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
 .tagline {
   margin: 10px 0 24px;
   font-size: 1.1rem;
