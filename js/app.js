@@ -39,6 +39,9 @@ const resultSessionCode = document.getElementById('resultSessionCode');
 const resultStops = document.getElementById('resultStops');
 const liveSpeed = document.getElementById('liveSpeed');
 const liveDirection = document.getElementById('liveDirection');
+const liveDirectionArrow = document.getElementById('liveDirectionArrow');
+const liveDirectionDot = document.getElementById('liveDirectionDot');
+const liveDirectionLabel = document.getElementById('liveDirectionLabel');
 const liveMovement = document.getElementById('liveMovement');
 const capacityStatus = document.getElementById('capacityStatus');
 const capacityMessage = document.getElementById('capacityMessage');
@@ -68,7 +71,7 @@ let liveBusTrailSegments = [];
 let liveBusTrailKey = null;
 let previousLiveStatusReading = null;
 let liveStatusLastMovedAt = null;
-let liveStatusDirection = null;
+let liveStatusBearing = null;
 let liveStatusTicker = null;
 let watchId = null;
 let locationTimer = null;
@@ -638,19 +641,29 @@ function getTravelBearing(previousPosition, currentPosition) {
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
-function getCompassDirection(bearing) {
-  const directions = [
-    'North',
-    'North-East',
-    'East',
-    'South-East',
-    'South',
-    'South-West',
-    'West',
-    'North-West'
-  ];
+function renderLiveDirection(isMoving) {
+  if (!liveDirection) {
+    return;
+  }
 
-  return directions[Math.round(bearing / 45) % directions.length];
+  liveDirection.classList.toggle('is-moving', isMoving);
+  liveDirection.classList.toggle('is-stationary', !isMoving);
+
+  if (liveDirectionArrow) {
+    liveDirectionArrow.hidden = !isMoving;
+    liveDirectionArrow.style.transform =
+      `rotate(${liveStatusBearing ?? 0}deg)`;
+  }
+
+  if (liveDirectionDot) {
+    liveDirectionDot.hidden = isMoving;
+  }
+
+  if (liveDirectionLabel) {
+    liveDirectionLabel.textContent = isMoving
+      ? 'Bus is moving'
+      : 'Bus is not moving';
+  }
 }
 
 function renderLiveMovementStatus() {
@@ -687,14 +700,12 @@ function startLiveStatusTicker() {
 function resetLiveStatus() {
   previousLiveStatusReading = null;
   liveStatusLastMovedAt = null;
-  liveStatusDirection = null;
+  liveStatusBearing = null;
 
   if (liveSpeed) {
     liveSpeed.textContent = 'Calculating...';
   }
-  if (liveDirection) {
-    liveDirection.textContent = 'Calculating...';
-  }
+  renderLiveDirection(false);
 
   renderLiveMovementStatus();
 }
@@ -735,21 +746,18 @@ function updateLiveStatusFromRow(latitude, longitude, updatedAt) {
       `~${(distanceKm / elapsedHours).toFixed(1)} km/h`;
   }
 
-  if (distanceKm >= 0.005) {
-    const bearing = getTravelBearing(
+  const isMoving = distanceKm >= 0.005;
+  if (isMoving) {
+    liveStatusBearing = getTravelBearing(
       [previousReading.latitude, previousReading.longitude],
       [latitude, longitude]
     );
-    liveStatusDirection = `Heading ${getCompassDirection(bearing)}`;
     liveStatusLastMovedAt = updatedAt;
   } else if (!liveStatusLastMovedAt) {
     liveStatusLastMovedAt = previousReading.timestamp;
   }
 
-  if (liveDirection) {
-    liveDirection.textContent =
-      liveStatusDirection || 'Not moving';
-  }
+  renderLiveDirection(isMoving);
 
   previousLiveStatusReading = currentReading;
   renderLiveMovementStatus();

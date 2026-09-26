@@ -149,11 +149,30 @@
                       <dd id="liveSpeed">Calculating...</dd>
                     </div>
                     <div>
-                      <dt>Direction</dt>
-                      <dd id="liveDirection">Calculating...</dd>
+                      <dt>Movement</dt>
+                      <dd id="liveDirection" class="movement-indicator" aria-live="polite">
+                        <svg
+                          id="liveDirectionArrow"
+                          class="movement-indicator__icon"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          hidden
+                        >
+                          <path d="M12 2 4.5 20.5 12 17l7.5 3.5L12 2Z"></path>
+                        </svg>
+                        <svg
+                          id="liveDirectionDot"
+                          class="movement-indicator__icon movement-indicator__dot"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <circle cx="12" cy="12" r="6"></circle>
+                        </svg>
+                        <span id="liveDirectionLabel">Waiting for movement data.</span>
+                      </dd>
                     </div>
                     <div>
-                      <dt>Movement</dt>
+                      <dt>Last movement</dt>
                       <dd id="liveMovement">Waiting for movement data.</dd>
                     </div>
                   </dl>
