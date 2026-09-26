@@ -4,6 +4,7 @@ let activeBusSessions = [];
 let busSearchResults = [];
 let activeCatalogBusNumbers = new Set();
 let catalogLiveStatusAvailable = false;
+let toastSequence = 0;
 
 const busList = document.getElementById('busList');
 const homeLink = document.getElementById('homeLink');
@@ -26,6 +27,8 @@ const searchResultsMessage = document.getElementById('searchResultsMessage');
 const searchResultsList = document.getElementById('searchResultsList');
 const loadingIndicator = document.getElementById('loadingIndicator');
 const connectionError = document.getElementById('connectionError');
+const toastContainer = document.getElementById('toastContainer');
+const reportIssueLink = document.getElementById('reportIssueLink');
 const resultCard = document.getElementById('resultCard');
 const resultTitle = document.getElementById('resultTitle');
 const copyBusLinkBtn = document.getElementById('copyBusLinkBtn');
@@ -137,6 +140,28 @@ function hideLoadingIndicator() {
   if (loadingIndicator) {
     loadingIndicator.hidden = true;
   }
+}
+
+function showToast(message, isError = false) {
+  if (!toastContainer) {
+    return;
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast${isError ? ' toast-error' : ''}`;
+  toast.setAttribute('role', isError ? 'alert' : 'status');
+  toast.textContent = message;
+  toast.dataset.toastId = String(++toastSequence);
+  toastContainer.appendChild(toast);
+
+  window.requestAnimationFrame(() => {
+    toast.classList.add('is-visible');
+  });
+
+  window.setTimeout(() => {
+    toast.classList.remove('is-visible');
+    window.setTimeout(() => toast.remove(), 250);
+  }, 2500);
 }
 
 function returnToHome() {
@@ -381,6 +406,25 @@ function normalizeBusRecord(bus) {
     stops: stops.map((stop) => String(stop).trim()).filter(Boolean),
     status: bus.active === false ? 'Inactive' : 'Active'
   };
+}
+
+function renderBusCatalogSkeletons() {
+  if (!busList) {
+    return;
+  }
+
+  busList.replaceChildren();
+  for (let index = 0; index < 6; index += 1) {
+    const skeleton = document.createElement('div');
+    skeleton.className = 'bus-card bus-card-skeleton';
+    skeleton.setAttribute('aria-hidden', 'true');
+    skeleton.innerHTML = `
+      <span class="skeleton-line skeleton-title"></span>
+      <span class="skeleton-line skeleton-route"></span>
+      <span class="skeleton-line skeleton-status"></span>
+    `;
+    busList.appendChild(skeleton);
+  }
 }
 
 function renderBusCards() {
@@ -975,7 +1019,7 @@ function renderNearbyBusSessions(sessionRows) {
   }
   activeSessionsMessage.textContent = sessionRows.length
     ? 'Nearby active buses'
-    : 'No active buses were found near your location.';
+    : 'No buses found nearby right now. Try searching by bus number instead, or check back later.';
 
   sessionRows.forEach((session) => {
     const item = document.createElement('li');
@@ -1944,6 +1988,10 @@ async function showBusDetails(bus) {
   resetLiveStatus();
   resultTitle.textContent = `Bus ${normalizedBus.busNumber}`;
   setPageTitle(normalizedBus.busNumber);
+  if (reportIssueLink) {
+    reportIssueLink.href =
+      `mailto:feedback@example.com?subject=${encodeURIComponent(`Issue with bus ${normalizedBus.busNumber}`)}`;
+  }
   resultNumber.textContent = normalizedBus.busNumber;
   resultRoute.textContent = normalizedBus.routeName;
   resultStart.textContent = normalizedBus.startingPoint;
@@ -2182,14 +2230,14 @@ copyBusLinkBtn.addEventListener('click', async () => {
     await navigator.clipboard.writeText(
       getBusSessionUrl(currentBusSessionCode)
     );
-    copyBusLinkMessage.textContent = 'Link copied!';
-    window.setTimeout(() => {
-      copyBusLinkMessage.textContent = '';
-    }, 2000);
+    copyBusLinkMessage.textContent = '';
+    showToast('Link copied!');
   } catch (error) {
     console.error('Failed to copy bus link', error);
-    copyBusLinkMessage.textContent =
-      'Could not copy the link. Please copy it from the address bar.';
+    showToast(
+      'Could not copy the link. Please copy it from the address bar.',
+      true
+    );
   }
 });
 
@@ -2222,13 +2270,12 @@ capacityButtons.forEach((button) => {
       }
 
       updateCapacityFromRow(data);
-      setCapacityMessage('Capacity updated.');
+      setCapacityMessage('');
+      showToast('Capacity updated.');
     } catch (error) {
       console.error('Capacity update failed', error);
-      setCapacityMessage(
-        `Could not update capacity: ${error.message}`,
-        true
-      );
+      setCapacityMessage('');
+      showToast(`Could not update capacity: ${error.message}`, true);
     } finally {
       capacityButtons.forEach((capacityButton) => {
         capacityButton.disabled = false;
@@ -2319,7 +2366,8 @@ addBusForm.addEventListener('submit', async (event) => {
     return;
   }
 
-  setAddBusMessage(`Bus ${data.bus_number} added successfully.`, false);
+  setAddBusMessage('');
+  showToast(`Bus ${data.bus_number} added successfully.`);
   newBusNumber.value = '';
   newBusRoute.value = '';
   newBusStart.value = '';
@@ -2376,7 +2424,7 @@ homeLink.addEventListener('click', returnToHome);
 
 async function initializeApp() {
   initMap();
-  renderBusCards();
+  renderBusCatalogSkeletons();
   renderRecentBusSearches();
 
   console.log('initializeApp: Supabase client and DOM are ready', {

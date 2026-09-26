@@ -21,6 +21,7 @@
   </head>
   <body>
     <main class="page-shell">
+      <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
       <div id="loadingIndicator" class="status-banner loading-banner" role="status">
         Loading APSRTC Live...
       </div>
@@ -138,6 +139,13 @@
                     <dd id="resultSessionCode">-</dd>
                   </div>
                 </dl>
+                <a
+                  id="reportIssueLink"
+                  class="report-issue-link"
+                  href="mailto:feedback@example.com"
+                >
+                  🚩 Report an issue
+                </a>
               </section>
 
               <section id="livePanel" class="tab-panel" role="tabpanel" aria-labelledby="liveTab" data-result-panel="live" hidden>
