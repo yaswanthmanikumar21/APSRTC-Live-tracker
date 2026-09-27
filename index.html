@@ -108,7 +108,10 @@
             <div class="result-header">
               <div class="result-title-group">
                 <button id="detailsBackBtn" class="details-back-button" type="button" hidden>
-                  ← Back
+                  <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                    <path d="M11.75 4.5 6.25 10l5.5 5.5M6.75 10h9"></path>
+                  </svg>
+                  <span>Back</span>
                 </button>
                 <h3 id="resultTitle">Bus details</h3>
               </div>
@@ -118,6 +121,12 @@
                 </button>
                 <span id="copyBusLinkMessage" class="copy-link-message" aria-live="polite"></span>
               </div>
+            </div>
+
+            <div id="activeSessionsContainer" class="active-sessions-container" hidden>
+              <h4 id="activeSessionsHeading">Active buses on this route</h4>
+              <p id="activeSessionsMessage" class="active-sessions-message"></p>
+              <ul id="activeSessionsList" class="active-session-list"></ul>
             </div>
 
             <div class="result-tabs">
@@ -256,12 +265,6 @@
               <button id="stopSharingBtn" class="stop-button" type="button" hidden>
                 Stop Sharing
               </button>
-            </div>
-
-            <div id="activeSessionsContainer" class="active-sessions-container" hidden>
-              <h4 id="activeSessionsHeading">Active buses on this route</h4>
-              <p id="activeSessionsMessage" class="active-sessions-message"></p>
-              <ul id="activeSessionsList" class="active-session-list"></ul>
             </div>
 
             <div id="locationPanel" class="location-panel" hidden>
