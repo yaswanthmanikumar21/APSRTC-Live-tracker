@@ -189,28 +189,9 @@ p {
   flex: 0 0 38px;
   width: 38px;
   height: 38px;
-}
-
-.brand-logo > circle:first-child {
-  fill: #1769aa;
-  stroke: #ffffff;
-  stroke-width: 3;
-}
-
-.brand-logo__bus {
-  fill: #ffffff;
-  stroke: #0d4775;
-  stroke-width: 1.5;
-}
-
-.brand-logo__window {
-  fill: #8fd3ff;
-  stroke: #0d4775;
-  stroke-width: 1;
-}
-
-.brand-logo__wheel {
-  fill: #0d4775;
+  border-radius: 8px;
+  object-fit: cover;
+  object-position: center;
 }
 
 .home-link:focus-visible {
