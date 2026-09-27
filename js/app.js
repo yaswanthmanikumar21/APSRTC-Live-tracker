@@ -107,6 +107,9 @@ let nearbyBusLatitude = null;
 let nearbyBusLongitude = null;
 let nearbyBusRefreshInFlight = false;
 let wakeLockSentinel = null;
+let gpsBackupWorker = null;
+let gpsBackupWorkerUnavailable = false;
+let lastGpsBackupRequestAt = 0;
 let gpsDebugStatus = 'waiting';
 let gpsDebugCallbackTime = 'none';
 let gpsDebugLatitude = 'none';
@@ -1459,6 +1462,56 @@ function startGpsRefreshLoop() {
   gpsRefreshInterval = window.setInterval(refreshGpsLocation, 15000);
 }
 
+function setBackgroundGpsWorkerActive(isActive) {
+  if (!isActive) {
+    gpsBackupWorker?.postMessage({ type: 'stop' });
+    return;
+  }
+
+  if (gpsBackupWorkerUnavailable || gpsBackupWorker) {
+    gpsBackupWorker?.postMessage({ type: 'start' });
+    return;
+  }
+
+  if (!window.Worker) {
+    gpsBackupWorkerUnavailable = true;
+    console.warn('Background GPS backup is unavailable because Web Workers are not supported.');
+    return;
+  }
+
+  try {
+    gpsBackupWorker = new Worker(new URL('js/gps-refresh-worker.js', window.location.href));
+    gpsBackupWorker.addEventListener('message', (event) => {
+      if (
+        event.data?.type !== 'gps-refresh-check' ||
+        document.visibilityState !== 'hidden' ||
+        !isSharingActive
+      ) {
+        return;
+      }
+
+      const now = Date.now();
+      const gpsCallbackIsStale = now - lastGpsCallbackTime >= 20000;
+      const backupRequestIsDue = now - lastGpsBackupRequestAt >= 15000;
+      if (gpsCallbackIsStale && backupRequestIsDue) {
+        lastGpsBackupRequestAt = now;
+        console.info('Background GPS worker requested a backup location check.');
+        refreshGpsLocation();
+      }
+    });
+    gpsBackupWorker.addEventListener('error', (event) => {
+      console.error('Background GPS worker failed.', event.message);
+      gpsBackupWorker?.terminate();
+      gpsBackupWorker = null;
+      gpsBackupWorkerUnavailable = true;
+    });
+    gpsBackupWorker.postMessage({ type: 'start' });
+  } catch (error) {
+    gpsBackupWorkerUnavailable = true;
+    console.error('Could not start the background GPS worker.', error);
+  }
+}
+
 function stopLocationSharing(message = 'Location sharing stopped.') {
   isSharingActive = false;
   clearGpsRefreshInterval();
@@ -2532,12 +2585,16 @@ stopSharingBtn.addEventListener('click', () => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
+    setBackgroundGpsWorkerActive(false);
     requestWakeLock();
+  } else {
+    setBackgroundGpsWorkerActive(true);
   }
 });
 
 window.addEventListener('beforeunload', () => {
   clearNearbyBusTimers();
+  gpsBackupWorker?.terminate();
   stopRealtimeSubscription();
 });
 
@@ -2567,6 +2624,7 @@ async function initializeApp() {
 }
 
 function startApp() {
+  setBackgroundGpsWorkerActive(document.visibilityState === 'hidden');
   if (sharingDisclaimer?.showModal) {
     sharingDisclaimer.showModal();
   }
