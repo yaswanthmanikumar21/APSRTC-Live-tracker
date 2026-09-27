@@ -1421,17 +1421,42 @@ function startBusLocationTicker(liveMessageElement, timestamp) {
 
   const tick = () => {
     const currentTimestamp = timestamp || liveBusUpdatedAt;
-    if (!currentTimestamp) {
-      liveMessageElement.textContent = 'Live bus location found. Updated just now';
-      return;
-    }
+    const parsedTimestamp = currentTimestamp ? new Date(currentTimestamp).getTime() : NaN;
+    const ageMilliseconds = Number.isFinite(parsedTimestamp)
+      ? Math.max(0, Date.now() - parsedTimestamp)
+      : 0;
+    const warningBadge = document.getElementById('liveLocationWarning');
+    const staleWarning = document.getElementById('liveLocationStaleWarning');
 
-    updateRelativeTimestampText(liveMessageElement, currentTimestamp, 'Live bus location found. Updated ');
-    updateActiveSessionTimestamp(
+    updateRelativeTimestampText(
+      liveMessageElement,
       currentTimestamp,
-      currentRealtimeBusNumber || currentBusNumber,
-      currentRealtimeBusCode || currentBusSessionCode
+      'Live bus location found. Updated '
     );
+    liveMessageElement.parentElement?.classList.toggle(
+      'map-note--warning',
+      ageMilliseconds >= 60000 && ageMilliseconds <= 120000
+    );
+
+    if (warningBadge) {
+      warningBadge.hidden = ageMilliseconds < 60000 || ageMilliseconds > 120000;
+    }
+    if (staleWarning) {
+      staleWarning.hidden = ageMilliseconds <= 120000;
+      staleWarning.textContent = "⚠️ This bus's location hasn't updated recently and may not be accurate. The sharer may have closed the app or lost connection.";
+    }
+    liveBusMarker?.getElement()?.classList.toggle(
+      'is-stale',
+      ageMilliseconds >= 120000
+    );
+
+    if (currentTimestamp) {
+      updateActiveSessionTimestamp(
+        currentTimestamp,
+        currentRealtimeBusNumber || currentBusNumber,
+        currentRealtimeBusCode || currentBusSessionCode
+      );
+    }
   };
 
   tick();
@@ -1978,6 +2003,17 @@ async function startRealtimeForBus(busNumber, busCode = null) {
   lastSeenBusUpdatedAt = null;
 
   const liveMessage = document.getElementById('liveLocationMessage');
+  const liveLocationWarning = document.getElementById('liveLocationWarning');
+  const liveLocationStaleWarning = document.getElementById('liveLocationStaleWarning');
+  liveMessage?.parentElement?.classList.remove('map-note--warning');
+  if (liveLocationWarning) {
+    liveLocationWarning.hidden = true;
+  }
+  if (liveLocationStaleWarning) {
+    liveLocationStaleWarning.hidden = true;
+    liveLocationStaleWarning.textContent = '';
+  }
+  liveBusMarker?.getElement()?.classList.remove('is-stale');
 
   if (!window.supabaseHelpers || !window.supabaseClient) {
     if (liveMessage) {

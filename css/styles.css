@@ -775,6 +775,36 @@ p {
   color: var(--muted);
 }
 
+.map-note--warning {
+  color: #854d0e;
+}
+
+.map-note__warning {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border: 1px solid #facc15;
+  border-radius: 999px;
+  background: #fef9c3;
+  color: #854d0e;
+  font-weight: 700;
+}
+
+.map-note__warning[hidden],
+.map-stale-warning[hidden] {
+  display: none;
+}
+
+.map-stale-warning {
+  margin: 0 0 10px;
+  padding: 11px 14px;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 700;
+}
+
 .live-bus-icon {
   display: flex;
   align-items: center;
@@ -789,6 +819,12 @@ p {
   width: 48px;
   height: 48px;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
+  transition: opacity 180ms ease, filter 180ms ease;
+}
+
+.live-bus-icon.is-stale .live-bus-icon__badge {
+  opacity: 0.48;
+  filter: grayscale(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
 }
 
 .live-bus-icon__svg {

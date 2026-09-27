@@ -213,7 +213,13 @@
                   </dl>
                 </section>
                 <div id="mapWrapper" class="map-wrapper" hidden>
-                  <p id="liveLocationMessage" class="map-note"></p>
+                  <p class="map-note">
+                    <span id="liveLocationMessage"></span>
+                    <span id="liveLocationWarning" class="map-note__warning" hidden>
+                      ⚠️ Location may be outdated
+                    </span>
+                  </p>
+                  <p id="liveLocationStaleWarning" class="map-stale-warning" hidden></p>
                   <div id="map" class="map-container" aria-label="Bus map location"></div>
                 </div>
               </section>
