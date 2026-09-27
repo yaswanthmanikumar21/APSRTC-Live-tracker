@@ -2063,7 +2063,7 @@ async function showBusDetails(bus) {
   setPageTitle(normalizedBus.busNumber);
   if (reportIssueLink) {
     reportIssueLink.href =
-      `mailto:feedback@example.com?subject=${encodeURIComponent(`Issue with bus ${normalizedBus.busNumber}`)}`;
+      `mailto:apsrtclive@gmail.com?subject=${encodeURIComponent(`Issue with bus ${normalizedBus.busNumber}`)}`;
   }
   resultNumber.textContent = normalizedBus.busNumber;
   resultRoute.textContent = normalizedBus.routeName;
