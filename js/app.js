@@ -2,9 +2,11 @@ let busCatalog = [];
 let currentBusSessionCode = null;
 let activeBusSessions = [];
 let busSearchResults = [];
+let busSearchQuery = '';
 let activeCatalogBusNumbers = new Set();
 let catalogLiveStatusAvailable = false;
 let toastSequence = 0;
+let detailsReturnView = { type: 'catalog' };
 
 const busList = document.getElementById('busList');
 const homeLink = document.getElementById('homeLink');
@@ -30,6 +32,7 @@ const connectionError = document.getElementById('connectionError');
 const toastContainer = document.getElementById('toastContainer');
 const reportIssueLink = document.getElementById('reportIssueLink');
 const resultCard = document.getElementById('resultCard');
+const detailsBackBtn = document.getElementById('detailsBackBtn');
 const resultTitle = document.getElementById('resultTitle');
 const copyBusLinkBtn = document.getElementById('copyBusLinkBtn');
 const copyBusLinkMessage = document.getElementById('copyBusLinkMessage');
@@ -57,6 +60,9 @@ const mapWrapper = document.getElementById('mapWrapper');
 const shareLocationBtn = document.getElementById('shareLocationBtn');
 const stopSharingBtn = document.getElementById('stopSharingBtn');
 const timerSelect = document.getElementById('timerSelect');
+const customDurationMinutes = document.getElementById('customDurationMinutes');
+const sharingDisclaimer = document.getElementById('sharingDisclaimer');
+const dismissSharingDisclaimer = document.getElementById('dismissSharingDisclaimer');
 const locationPanel = document.getElementById('locationPanel');
 const locationStatusText = document.getElementById('locationStatusText');
 const latitudeValue = document.getElementById('latitudeValue');
@@ -177,6 +183,7 @@ function returnToHome() {
   searchInput.value = '';
 
   resultCard.hidden = true;
+  detailsBackBtn.hidden = true;
   mapWrapper.hidden = true;
   activeSessionsContainer.hidden = true;
   setResultTab('details');
@@ -210,6 +217,41 @@ function returnToHome() {
     `${url.pathname}${url.search}${url.hash}`
   );
 
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function returnFromBusDetails() {
+  const returnView = detailsReturnView;
+  stopRealtimeSubscription();
+  clearLiveBusMarker();
+  clearActiveBusSessions();
+  resultCard.hidden = true;
+  detailsBackBtn.hidden = true;
+  mapWrapper.hidden = true;
+  setPageTitle();
+  currentBusSessionCode = null;
+  currentBusNumber = null;
+  currentBusRoute = null;
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete('bus');
+  window.history.pushState(
+    {},
+    '',
+    `${url.pathname}${url.search}${url.hash}`
+  );
+
+  if (returnView.type === 'searchResults') {
+    renderBusSearchResults(returnView.buses, returnView.query);
+    searchMessage.textContent =
+      `${returnView.buses.length} buses found. Select one to view details.`;
+  } else {
+    clearBusSearchResults();
+    searchMessage.textContent =
+      'Search for a bus number to view live route details.';
+  }
+
+  setResultTab('details');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -774,6 +816,11 @@ function updateLiveStatusFromRow(latitude, longitude, updatedAt) {
 
   const elapsedMilliseconds = updatedAt - previousReading.timestamp;
   if (elapsedMilliseconds <= 0) {
+    console.log('Live movement distance skipped: timestamp did not advance', {
+      previousTimestamp: previousReading.timestamp,
+      currentTimestamp: updatedAt,
+      elapsedMilliseconds
+    });
     return;
   }
 
@@ -790,7 +837,19 @@ function updateLiveStatusFromRow(latitude, longitude, updatedAt) {
       `~${(distanceKm / elapsedHours).toFixed(1)} km/h`;
   }
 
-  const isMoving = distanceKm >= 0.005;
+  const movementThresholdKm = 0.001;
+  const isMoving = distanceKm >= movementThresholdKm;
+  console.log('Live movement distance calculated', {
+    previousPosition: {
+      latitude: previousReading.latitude,
+      longitude: previousReading.longitude
+    },
+    currentPosition: { latitude, longitude },
+    elapsedMilliseconds,
+    distanceMeters: distanceKm * 1000,
+    movementThresholdMeters: movementThresholdKm * 1000,
+    isMoving
+  });
   if (isMoving) {
     liveStatusBearing = getTravelBearing(
       [previousReading.latitude, previousReading.longitude],
@@ -1244,6 +1303,7 @@ function clearBusSearchResults() {
 
 function renderBusSearchResults(buses, query) {
   busSearchResults = Array.isArray(buses) ? buses : [];
+  busSearchQuery = query;
   searchResultsList.innerHTML = '';
   searchResultsContainer.hidden = false;
   searchResultsMessage.textContent = `Choose a bus matching "${query}".`;
@@ -1844,6 +1904,8 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   if (map && !markerAlreadyExists) {
     map.setView(currentPosition);
     map.invalidateSize();
+  } else if (map) {
+    map.panTo(currentPosition, { animate: true });
   }
 }
 
@@ -1984,6 +2046,9 @@ async function showBusDetails(bus) {
     return;
   }
 
+  if (detailsBackBtn) {
+    detailsBackBtn.hidden = false;
+  }
   setResultTab('details');
   resetLiveStatus();
   resultTitle.textContent = `Bus ${normalizedBus.busNumber}`;
@@ -2033,10 +2098,14 @@ async function showBusDetails(bus) {
   }
 
   await loadActiveBusSessions(normalizedBus.busNumber, normalizedBus.routeName);
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 }
 
 searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  detailsReturnView = { type: 'catalog' };
   clearNearbyBusTimers();
   nearbyBusLatitude = null;
   nearbyBusLongitude = null;
@@ -2136,6 +2205,7 @@ busList.addEventListener('click', (event) => {
   }
 
   const input = document.getElementById('busNumber');
+  detailsReturnView = { type: 'catalog' };
   input.value = card.dataset.busNumber;
   searchForm.requestSubmit();
 });
@@ -2195,6 +2265,11 @@ searchResultsList.addEventListener('click', (event) => {
     const index = Number(searchResultButton.dataset.searchResultIndex);
     const selectedBus = normalizeBusRecord(busSearchResults[index]);
     if (selectedBus) {
+      detailsReturnView = {
+        type: 'searchResults',
+        buses: [...busSearchResults],
+        query: busSearchQuery
+      };
       showBusDetails(selectedBus)
         .then(() => {
           setConnectionError(false);
@@ -2385,6 +2460,22 @@ shareLocationBtn.addEventListener('click', () => {
     return;
   }
 
+  let customDurationMilliseconds = null;
+  if (timerSelect.value === 'custom') {
+    const durationMinutes = Number(customDurationMinutes.value);
+    const maximumDurationMinutes = Math.floor(2147483647 / 60000);
+    if (
+      !Number.isSafeInteger(durationMinutes) ||
+      durationMinutes < 1 ||
+      durationMinutes > maximumDurationMinutes
+    ) {
+      showToast(`Enter a whole number of minutes between 1 and ${maximumDurationMinutes}.`, true);
+      customDurationMinutes.focus();
+      return;
+    }
+    customDurationMilliseconds = durationMinutes * 60000;
+  }
+
   const sessionCode = generateBusSessionCode(busNumber);
   currentBusSessionCode = sessionCode;
   if (resultSessionCode) {
@@ -2402,7 +2493,28 @@ shareLocationBtn.addEventListener('click', () => {
     return;
   }
 
+  if (customDurationMilliseconds !== null) {
+    let customOption = timerSelect.querySelector('[data-custom-duration="true"]');
+    if (!customOption) {
+      customOption = document.createElement('option');
+      customOption.dataset.customDuration = 'true';
+      timerSelect.append(customOption);
+    }
+    customOption.value = String(customDurationMilliseconds);
+    customOption.textContent = `${customDurationMilliseconds / 60000} minutes (Custom)`;
+    timerSelect.value = customOption.value;
+    customDurationMinutes.hidden = true;
+  }
+
   startLocationSharing();
+});
+
+timerSelect.addEventListener('change', () => {
+  const isCustomDuration = timerSelect.value === 'custom';
+  customDurationMinutes.hidden = !isCustomDuration;
+  if (isCustomDuration) {
+    customDurationMinutes.focus();
+  }
 });
 
 stopSharingBtn.addEventListener('click', () => {
@@ -2421,6 +2533,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 homeLink.addEventListener('click', returnToHome);
+detailsBackBtn.addEventListener('click', returnFromBusDetails);
 
 async function initializeApp() {
   initMap();
@@ -2445,10 +2558,17 @@ async function initializeApp() {
 }
 
 function startApp() {
+  if (sharingDisclaimer?.showModal) {
+    sharingDisclaimer.showModal();
+  }
   initializeApp().catch((error) => {
     console.error('Application initialization failed', error);
   });
 }
+
+dismissSharingDisclaimer.addEventListener('click', () => {
+  sharingDisclaimer.close();
+});
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', startApp, { once: true });

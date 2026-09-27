@@ -20,6 +20,20 @@
     <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
+    <dialog id="sharingDisclaimer" class="sharing-disclaimer" aria-labelledby="sharingDisclaimerTitle">
+      <div class="sharing-disclaimer__content">
+        <h2 id="sharingDisclaimerTitle">A quick note about location sharing</h2>
+        <ul>
+          <li>Location sharing is optional and starts only when you tap “I'm on this bus”.</li>
+          <li>Your browser may ask you to allow location access; you may need to enable it in your browser settings.</li>
+          <li>Please share only when you are genuinely riding that bus so the information stays trustworthy.</li>
+          <li>Remember to stop sharing, or let it expire automatically, when your ride is done.</li>
+          <li>Your location is not linked to your identity and is used only to show live bus positions to other riders.</li>
+          <li>Accuracy depends on your device's GPS and network. We do our best, but cannot guarantee perfect accuracy; sorry for any inconvenience.</li>
+        </ul>
+        <button id="dismissSharingDisclaimer" class="primary-button" type="button">OK, got it</button>
+      </div>
+    </dialog>
     <main class="page-shell">
       <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
       <div id="loadingIndicator" class="status-banner loading-banner" role="status">
@@ -92,7 +106,12 @@
 
           <div id="resultCard" class="result-card" hidden>
             <div class="result-header">
-              <h3 id="resultTitle">Bus details</h3>
+              <div class="result-title-group">
+                <button id="detailsBackBtn" class="details-back-button" type="button" hidden>
+                  ← Back
+                </button>
+                <h3 id="resultTitle">Bus details</h3>
+              </div>
               <div class="share-link-control">
                 <button id="copyBusLinkBtn" type="button" class="secondary-button">
                   🔗 Copy link
@@ -216,7 +235,20 @@
                   <option value="1800000">30 minutes</option>
                   <option value="3600000">1 hour</option>
                   <option value="0">Until I stop</option>
+                  <option value="custom">Custom</option>
                 </select>
+                <label class="sr-only" for="customDurationMinutes">Custom sharing duration in minutes</label>
+                <input
+                  id="customDurationMinutes"
+                  class="custom-duration-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  placeholder="Minutes"
+                  aria-label="Custom sharing duration in minutes"
+                  hidden
+                />
               </div>
 
               <p class="gps-note">GPS updates depend on your device and may take 15-60 seconds between updates.</p>

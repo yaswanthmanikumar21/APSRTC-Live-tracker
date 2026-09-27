@@ -60,6 +60,45 @@ body {
   font-weight: 700;
 }
 
+.custom-duration-input {
+  width: 110px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.sharing-disclaimer {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(85vh, 720px);
+  overflow-y: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  color: var(--text);
+  box-shadow: 0 20px 60px rgba(20, 33, 61, 0.28);
+}
+
+.sharing-disclaimer::backdrop {
+  background: rgba(20, 33, 61, 0.58);
+}
+
+.sharing-disclaimer__content {
+  padding: 24px;
+}
+
+.sharing-disclaimer h2 {
+  margin: 0 0 12px;
+}
+
+.sharing-disclaimer ul {
+  display: grid;
+  gap: 10px;
+  padding-left: 22px;
+  line-height: 1.5;
+}
+
 .loading-banner {
   background: #e8f0ff;
   color: var(--primary);
