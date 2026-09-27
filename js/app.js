@@ -1304,7 +1304,7 @@ function clearBusSearchResults() {
 function renderBusSearchResults(buses, query) {
   busSearchResults = Array.isArray(buses) ? buses : [];
   busSearchQuery = query;
-  searchResultsList.innerHTML = '';
+  searchResultsList.replaceChildren();
   searchResultsContainer.hidden = false;
   searchResultsMessage.textContent = `Choose a bus matching "${query}".`;
 
@@ -1316,12 +1316,20 @@ function renderBusSearchResults(buses, query) {
 
     const item = document.createElement('li');
     item.className = 'session-item';
-    item.innerHTML = `
-      <button type="button" class="session-button" data-search-result-index="${index}">
-        Bus ${normalizedBus.busNumber}
-        <span class="session-meta">${normalizedBus.routeName}</span>
-      </button>
-    `;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'session-button';
+    button.dataset.searchResultIndex = String(index);
+
+    const busLabel = document.createElement('span');
+    busLabel.textContent = `Bus ${normalizedBus.busNumber}`;
+
+    const routeLabel = document.createElement('span');
+    routeLabel.className = 'session-meta';
+    routeLabel.textContent = normalizedBus.routeName;
+
+    button.append(busLabel, routeLabel);
+    item.appendChild(button);
     searchResultsList.appendChild(item);
   });
 }
