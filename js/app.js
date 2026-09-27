@@ -65,6 +65,7 @@ const sharingDisclaimer = document.getElementById('sharingDisclaimer');
 const dismissSharingDisclaimer = document.getElementById('dismissSharingDisclaimer');
 const locationPanel = document.getElementById('locationPanel');
 const locationStatusText = document.getElementById('locationStatusText');
+const sharingReminder = document.getElementById('sharingReminder');
 const latitudeValue = document.getElementById('latitudeValue');
 const longitudeValue = document.getElementById('longitudeValue');
 const lastUpdateValue = document.getElementById('lastUpdateValue');
@@ -2581,7 +2582,13 @@ shareLocationBtn.addEventListener('click', () => {
   }
 
   const routeLabel = routeName && routeName !== '-' ? routeName : 'selected route';
-  const confirmText = `You are about to share location for Bus ${sessionCode} - ${routeLabel}. Confirm?`;
+  const confirmText = [
+    `🙌 Thank you for helping fellow riders! Your live location will help others know exactly where Bus ${busNumber} is.`,
+    'We really appreciate you choosing to share and trust us with this. 💙',
+    '',
+    `Sharing session: ${sessionCode} - ${routeLabel}`,
+    'Would you like to start sharing?'
+  ].join('\n');
 
   if (!window.confirm(confirmText)) {
     currentBusSessionCode = null;
@@ -2605,6 +2612,10 @@ shareLocationBtn.addEventListener('click', () => {
   }
 
   startLocationSharing();
+  if (isSharingActive) {
+    locationPanel.hidden = false;
+    sharingReminder.hidden = false;
+  }
 });
 
 timerSelect.addEventListener('change', () => {
@@ -2618,6 +2629,12 @@ timerSelect.addEventListener('change', () => {
 stopSharingBtn.addEventListener('click', () => {
   stopLocationSharing('Location sharing stopped.');
 });
+
+new MutationObserver(() => {
+  if (!isSharingActive) {
+    sharingReminder.hidden = true;
+  }
+}).observe(locationStatusText, { childList: true, characterData: true, subtree: true });
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {

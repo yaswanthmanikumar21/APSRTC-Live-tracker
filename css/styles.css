@@ -741,6 +741,21 @@ p {
   color: var(--primary);
 }
 
+.location-panel .sharing-reminder {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid #c9dff0;
+  border-radius: 12px;
+  background: #f0f7fc;
+  color: #315b78;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.location-panel .sharing-reminder[hidden] {
+  display: none;
+}
+
 .location-panel p {
   margin: 4px 0;
   color: var(--muted);
