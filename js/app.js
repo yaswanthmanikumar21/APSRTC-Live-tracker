@@ -986,17 +986,28 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
     item.className = 'session-item';
     item.dataset.busCode = session.bus_code;
     item.dataset.busNumber = session.bus_number;
-    item.innerHTML = `
-      <button type="button" class="session-button" data-bus-code="${session.bus_code || ''}" data-bus-number="${session.bus_number}">
-        Bus ${session.bus_number}${session.bus_code ? `-${session.bus_code}` : ''}
-        <span class="session-meta">
-          <span data-route-session-updated-at="${session.updated_at}">
-            Updated ${formatTimeAgo(session.updated_at)}
-          </span>
-          ${session.distanceKm != null ? ` · ${session.distanceKm.toFixed(1)} km away` : ''}
-        </span>
-      </button>
-    `;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'session-button';
+    button.setAttribute('data-bus-code', session.bus_code || '');
+    button.setAttribute('data-bus-number', session.bus_number);
+    button.appendChild(document.createTextNode(
+      `Bus ${session.bus_number}${session.bus_code ? `-${session.bus_code}` : ''}`
+    ));
+
+    const meta = document.createElement('span');
+    meta.className = 'session-meta';
+    const updated = document.createElement('span');
+    updated.setAttribute('data-route-session-updated-at', session.updated_at);
+    updated.textContent = `Updated ${formatTimeAgo(session.updated_at)}`;
+    meta.appendChild(updated);
+    if (session.distanceKm != null) {
+      meta.appendChild(document.createTextNode(
+        ` · ${session.distanceKm.toFixed(1)} km away`
+      ));
+    }
+    button.appendChild(meta);
+    item.appendChild(button);
 
     activeSessionsList.appendChild(item);
   });
@@ -1090,15 +1101,28 @@ function renderNearbyBusSessions(sessionRows) {
     item.className = 'session-item';
     item.dataset.busCode = session.bus_code;
     item.dataset.busNumber = session.bus_number;
-    item.innerHTML = `
-      <button type="button" class="session-button" data-bus-code="${session.bus_code}" data-bus-number="${session.bus_number}">
-        Bus ${session.bus_number}-${session.bus_code}
-        <span class="session-meta">
-          <span data-nearby-updated-at="${session.updated_at}">Updated ${formatTimeAgo(session.updated_at)}</span>
-          ${session.distanceKm != null ? ` · ${session.distanceKm.toFixed(1)} km away` : ''}
-        </span>
-      </button>
-    `;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'session-button';
+    button.setAttribute('data-bus-code', session.bus_code);
+    button.setAttribute('data-bus-number', session.bus_number);
+    button.appendChild(document.createTextNode(
+      `Bus ${session.bus_number}-${session.bus_code}`
+    ));
+
+    const meta = document.createElement('span');
+    meta.className = 'session-meta';
+    const updated = document.createElement('span');
+    updated.setAttribute('data-nearby-updated-at', session.updated_at);
+    updated.textContent = `Updated ${formatTimeAgo(session.updated_at)}`;
+    meta.appendChild(updated);
+    if (session.distanceKm != null) {
+      meta.appendChild(document.createTextNode(
+        ` · ${session.distanceKm.toFixed(1)} km away`
+      ));
+    }
+    button.appendChild(meta);
+    item.appendChild(button);
 
     activeSessionsList.appendChild(item);
   });
