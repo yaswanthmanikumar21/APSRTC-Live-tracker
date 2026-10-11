@@ -118,7 +118,7 @@
               </div>
               <div class="share-link-control">
                 <button id="copyBusLinkBtn" type="button" class="secondary-button">
-                  🔗 Copy link
+                  🔗 Share
                 </button>
                 <span id="copyBusLinkMessage" class="copy-link-message" aria-live="polite"></span>
               </div>
@@ -317,6 +317,54 @@
       </section>
     </main>
 
+    <dialog
+      id="busShareSheet"
+      class="share-sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="busShareSheetTitle"
+      aria-label="Share this bus"
+    >
+      <section class="share-sheet__panel">
+        <header class="share-sheet__header">
+          <h2 id="busShareSheetTitle">Share this bus</h2>
+          <button
+            id="shareSheetClose"
+            class="share-sheet__close"
+            type="button"
+            aria-label="Close share sheet"
+          >×</button>
+        </header>
+        <div class="share-sheet__options" aria-label="Share options">
+          <button class="share-sheet__option" type="button" data-share-action="copy">Copy Link</button>
+          <button class="share-sheet__option" type="button" data-share-action="whatsapp">WhatsApp</button>
+          <button class="share-sheet__option" type="button" data-share-action="telegram">Telegram</button>
+          <button class="share-sheet__option" type="button" data-share-action="x">X</button>
+          <button class="share-sheet__option" type="button" data-share-action="email">Email</button>
+          <button class="share-sheet__option" type="button" data-share-action="messages">Messages</button>
+          <button
+            id="shareSheetQrOption"
+            class="share-sheet__option"
+            type="button"
+            data-share-action="qr"
+            hidden
+          >Share via QR</button>
+          <button
+            id="shareSheetMoreOption"
+            class="share-sheet__option"
+            type="button"
+            data-share-action="more"
+            hidden
+          >More options</button>
+        </div>
+        <section id="shareSheetQrPanel" class="share-sheet__qr" aria-label="Bus link QR code" hidden>
+          <img id="shareSheetQrImage" alt="QR code for this bus link" />
+          <a id="shareSheetQrDownload" class="secondary-button" download="share-qr.svg">Download QR</a>
+        </section>
+        <p id="shareSheetMessage" class="share-sheet__message" role="status" aria-live="polite"></p>
+      </section>
+    </dialog>
+
     <footer class="site-footer">
       <nav class="footer-nav" aria-label="Site information">
         <details class="footer-disclosure">
@@ -361,6 +409,7 @@
           </p>
         </details>
       </nav>
+      <p class="footer-credits">Share sheet inspired by VengeanceUI. QR by qrcode-generator (MIT).</p>
     </footer>
 
     <script
@@ -370,5 +419,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabaseClient.js"></script>
     <script src="js/app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+    <script src="js/share-sheet.js"></script>
   </body>
 </html>

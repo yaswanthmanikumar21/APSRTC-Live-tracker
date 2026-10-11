@@ -2418,25 +2418,18 @@ activeSessionsList.addEventListener('click', (event) => {
   selectActiveBusSession(busNumber, busCode);
 });
 
-copyBusLinkBtn.addEventListener('click', async () => {
+copyBusLinkBtn.addEventListener('click', () => {
   if (!currentBusSessionCode) {
     copyBusLinkMessage.textContent = 'Select a specific bus first.';
     return;
   }
 
-  try {
-    await navigator.clipboard.writeText(
-      getBusSessionUrl(currentBusSessionCode)
-    );
-    copyBusLinkMessage.textContent = '';
-    showToast('Link copied!');
-  } catch (error) {
-    console.error('Failed to copy bus link', error);
-    showToast(
-      'Could not copy the link. Please copy it from the address bar.',
-      true
-    );
-  }
+  copyBusLinkMessage.textContent = '';
+  window.openBusShareSheet({
+    url: getBusSessionUrl(currentBusSessionCode),
+    busNumber: currentBusNumber,
+    trigger: copyBusLinkBtn
+  });
 });
 
 capacityButtons.forEach((button) => {
