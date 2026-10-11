@@ -10,6 +10,22 @@
     />
     <meta name="google-site-verification" content="REPLACE_WITH_YOUR_CODE" />
     <link rel="icon" type="image/png" sizes="64x64" href="Images/favicon.png" />
+    <script>
+      (() => {
+        let theme = null;
+        try {
+          theme = localStorage.getItem('apsrtc-live-theme');
+        } catch (error) {
+          console.warn('Theme preference could not be read.', error);
+        }
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -50,6 +66,15 @@
             <button id="homeLink" class="home-link" type="button" aria-label="APSRTC Live home">
               <img class="brand-logo" src="Images/logo-icon.png" alt="" width="40" height="40" />
               <span>APSRTC Live</span>
+            </button>
+            <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false">
+              <svg class="theme-toggle__sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="4"></circle>
+                <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path>
+              </svg>
+              <svg class="theme-toggle__moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"></path>
+              </svg>
             </button>
           </h1>
           <p class="tagline">Know where your bus is.</p>
@@ -421,5 +446,6 @@
     <script src="js/app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
     <script src="js/share-sheet.js"></script>
+    <script src="js/theme.js"></script>
   </body>
 </html>
