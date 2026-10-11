@@ -161,7 +161,7 @@
     }
   }
 
-  function openBusShareSheet({ url, busNumber, trigger }) {
+  function openBusShareSheet({ url, busNumber, busType, trigger }) {
     const validLink = getValidShareLink(url);
     if (!validLink) {
       message.textContent = 'This bus link is not available to share.';
@@ -169,7 +169,12 @@
     }
 
     currentLink = validLink;
-    currentShareText = `Track Bus ${String(busNumber || '').trim()} live on APSRTC Live`;
+    const busTypeLabel = busType === 'ordinary'
+      ? 'Ordinary'
+      : busType === 'metro_express'
+        ? 'Metro Express'
+        : null;
+    currentShareText = `Track Bus ${String(busNumber || '').trim()}${busTypeLabel ? ` (${busTypeLabel})` : ''} live on APSRTC Live`;
     returnFocusTarget = trigger;
     previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';

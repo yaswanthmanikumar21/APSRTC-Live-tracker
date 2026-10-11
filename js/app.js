@@ -58,6 +58,8 @@ const activeSessionsMessage = document.getElementById('activeSessionsMessage');
 const activeSessionsList = document.getElementById('activeSessionsList');
 const mapWrapper = document.getElementById('mapWrapper');
 const shareLocationBtn = document.getElementById('shareLocationBtn');
+const busTypeOptions = document.querySelectorAll('input[name="shareBusType"]');
+const busTypeChoiceHint = document.getElementById('busTypeChoiceHint');
 const stopSharingBtn = document.getElementById('stopSharingBtn');
 const timerSelect = document.getElementById('timerSelect');
 const customDurationMinutes = document.getElementById('customDurationMinutes');
@@ -87,6 +89,9 @@ let watchId = null;
 let locationTimer = null;
 let currentBusNumber = null;
 let currentBusRoute = null;
+let currentBusType = null;
+let selectedShareBusType = null;
+let busTypeUpdateStarted = false;
 let activeBusSearch = 0;
 let lastSavedCoordinates = null;
 let lastSavedBusNumber = null;
@@ -116,6 +121,65 @@ let gpsDebugCallbackTime = 'none';
 let gpsDebugLatitude = 'none';
 let gpsDebugLongitude = 'none';
 let gpsDebugError = 'none';
+
+try {
+  const savedBusType = localStorage.getItem('apsrtc-live-bus-type');
+  if (['ordinary', 'metro_express'].includes(savedBusType)) {
+    selectedShareBusType = savedBusType;
+    busTypeOptions.forEach((option) => {
+      option.checked = option.value === savedBusType;
+    });
+  }
+} catch (error) {
+  console.warn('The last selected bus type could not be restored.', error);
+}
+
+function createBusTypeBadge(busType) {
+  if (!['ordinary', 'metro_express'].includes(busType)) {
+    return null;
+  }
+
+  const badge = document.createElement('span');
+  badge.className = 'bus-type-badge';
+  badge.dataset.busType = busType;
+  badge.textContent = busType === 'ordinary' ? 'Ordinary' : 'Metro Express';
+  return badge;
+}
+
+function setBusTypeBadges(busType) {
+  currentBusType = ['ordinary', 'metro_express'].includes(busType)
+    ? busType
+    : null;
+  resultTitle.querySelector('.bus-type-badge')?.remove();
+  const badge = createBusTypeBadge(currentBusType);
+  if (badge) {
+    resultTitle.append(document.createTextNode(' '), badge);
+  }
+}
+
+function updateSessionBusTypeBadge(busNumber, busCode, busType) {
+  [activeSessionsList, searchResultsList].forEach((list) => {
+    list?.querySelectorAll('.session-button').forEach((button) => {
+      const matchesCode = busCode && button.dataset.busCode === busCode;
+      const matchesNumber =
+        (!busCode || !button.dataset.busCode) &&
+        button.dataset.busNumber === busNumber;
+      if (!matchesCode && !matchesNumber) {
+        return;
+      }
+
+      button.dataset.busType = ['ordinary', 'metro_express'].includes(busType)
+        ? busType
+        : '';
+      const label = button.querySelector('.session-bus-label');
+      label?.querySelector('.bus-type-badge')?.remove();
+      const badge = createBusTypeBadge(busType);
+      if (label && badge) {
+        label.appendChild(badge);
+      }
+    });
+  });
+}
 
 function setPageTitle(busNumber = null) {
   document.title = busNumber
@@ -991,9 +1055,17 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
     button.className = 'session-button';
     button.setAttribute('data-bus-code', session.bus_code || '');
     button.setAttribute('data-bus-number', session.bus_number);
-    button.appendChild(document.createTextNode(
+    button.dataset.busType = session.bus_type || '';
+    const busLabel = document.createElement('span');
+    busLabel.className = 'session-bus-label';
+    busLabel.appendChild(document.createTextNode(
       `Bus ${session.bus_number}${session.bus_code ? `-${session.bus_code}` : ''}`
     ));
+    const badge = createBusTypeBadge(session.bus_type);
+    if (badge) {
+      busLabel.appendChild(badge);
+    }
+    button.appendChild(busLabel);
 
     const meta = document.createElement('span');
     meta.className = 'session-meta';
@@ -1020,12 +1092,12 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
 }
 
 function loadActiveBusSessions(busNumber, routeLabel) {
-  if (!window.supabaseHelpers) {
+  if (!window.busTypeHelpers) {
     renderActiveBusSessions('Live session lookup is unavailable right now.', []);
     return;
   }
 
-  window.supabaseHelpers
+  window.busTypeHelpers
     .getActiveBusSharesForRoute(busNumber)
     .then(async ({ data, error }) => {
       console.log('loadActiveBusSessions fetched route rows', {
@@ -1073,7 +1145,11 @@ function loadActiveBusSessions(busNumber, routeLabel) {
       );
 
       if (displayRows.length === 1) {
-        selectActiveBusSession(busNumber, displayRows[0].bus_code);
+        selectActiveBusSession(
+          busNumber,
+          displayRows[0].bus_code,
+          displayRows[0].bus_type
+        );
       }
     })
     .catch((error) => {
@@ -1106,9 +1182,17 @@ function renderNearbyBusSessions(sessionRows) {
     button.className = 'session-button';
     button.setAttribute('data-bus-code', session.bus_code);
     button.setAttribute('data-bus-number', session.bus_number);
-    button.appendChild(document.createTextNode(
+    button.dataset.busType = session.bus_type || '';
+    const busLabel = document.createElement('span');
+    busLabel.className = 'session-bus-label';
+    busLabel.appendChild(document.createTextNode(
       `Bus ${session.bus_number}-${session.bus_code}`
     ));
+    const badge = createBusTypeBadge(session.bus_type);
+    if (badge) {
+      busLabel.appendChild(badge);
+    }
+    button.appendChild(busLabel);
 
     const meta = document.createElement('span');
     meta.className = 'session-meta';
@@ -1131,16 +1215,11 @@ function renderNearbyBusSessions(sessionRows) {
 }
 
 async function loadNearbyBusSessions(latitude, longitude, selectFirst = true) {
-  if (!window.supabaseHelpers) {
+  if (!window.busTypeHelpers) {
     throw new Error('Supabase helpers are not available.');
   }
 
-  const { data, error } = await window.supabaseHelpers.getActiveBusLocationShares();
-  if (error) {
-    throw error;
-  }
-
-  const activeRows = Array.isArray(data) ? data : [];
+  const activeRows = await window.busTypeHelpers.getActiveBusLocationShares();
   const nearbyRows = activeRows
     .map((row) => ({
       ...row,
@@ -1150,6 +1229,7 @@ async function loadNearbyBusSessions(latitude, longitude, selectFirst = true) {
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   resultTitle.textContent = 'Nearby active buses';
+  setBusTypeBadges(null);
   resultNumber.textContent = '-';
   resultRoute.textContent = '-';
   resultStart.textContent = '-';
@@ -1163,7 +1243,11 @@ async function loadNearbyBusSessions(latitude, longitude, selectFirst = true) {
   renderNearbyBusSessions(nearbyRows);
 
   if (selectFirst && nearbyRows.length) {
-    selectActiveBusSession(nearbyRows[0].bus_number, nearbyRows[0].bus_code);
+    selectActiveBusSession(
+      nearbyRows[0].bus_number,
+      nearbyRows[0].bus_code,
+      nearbyRows[0].bus_type
+    );
   }
 }
 
@@ -1200,13 +1284,15 @@ function startNearbyBusRefresh() {
   );
 }
 
-function selectActiveBusSession(busNumber, busCode) {
+function selectActiveBusSession(busNumber, busCode, busType = null) {
   if (!busNumber) {
     return;
   }
 
   currentBusSessionCode = busCode;
   setResultTab('live');
+  resultTitle.textContent = `Bus ${busNumber}`;
+  setBusTypeBadges(busType);
   resultSessionCode.textContent = busCode || '-';
   resultNumber.textContent = busNumber;
   const selectedBusKey = busCode || busNumber;
@@ -1330,7 +1416,7 @@ function clearBusSearchResults() {
   }
 }
 
-function renderBusSearchResults(buses, query) {
+function renderBusSearchResults(buses, query, busTypesByNumber = new Map()) {
   busSearchResults = Array.isArray(buses) ? buses : [];
   busSearchQuery = query;
   searchResultsList.replaceChildren();
@@ -1349,9 +1435,17 @@ function renderBusSearchResults(buses, query) {
     button.type = 'button';
     button.className = 'session-button';
     button.dataset.searchResultIndex = String(index);
+    button.dataset.busNumber = normalizedBus.busNumber;
+    const busType = busTypesByNumber.get(normalizedBus.busNumber);
+    button.dataset.busType = busType || '';
 
     const busLabel = document.createElement('span');
+    busLabel.className = 'session-bus-label';
     busLabel.textContent = `Bus ${normalizedBus.busNumber}`;
+    const badge = createBusTypeBadge(busType);
+    if (badge) {
+      busLabel.appendChild(badge);
+    }
 
     const routeLabel = document.createElement('span');
     routeLabel.className = 'session-meta';
@@ -1672,6 +1766,14 @@ async function saveLocationToSupabase(latitude, longitude, busNumber = currentBu
 
   lastSavedCoordinates = coordinateKey;
   lastSavedBusNumber = selectedBusNumber;
+  if (!busTypeUpdateStarted) {
+    busTypeUpdateStarted = true;
+    window.setShareBusType(
+      selectedBusCode,
+      selectedBusNumber,
+      selectedShareBusType
+    );
+  }
   console.log('GPS location successfully saved to Supabase', {
     busNumber: selectedBusNumber,
     busCode: selectedBusCode,
@@ -1759,6 +1861,7 @@ function startLocationSharing() {
     clearTimeout(locationTimer);
   }
 
+  busTypeUpdateStarted = false;
   isSharingActive = true;
   const selectedDuration = Number(timerSelect.value);
 
@@ -2040,7 +2143,7 @@ async function startRealtimeForBus(busNumber, busCode = null) {
   }
   liveBusMarker?.getElement()?.classList.remove('is-stale');
 
-  if (!window.supabaseHelpers || !window.supabaseClient) {
+  if (!window.busTypeHelpers || !window.supabaseClient) {
     if (liveMessage) {
       liveMessage.textContent = 'Live location lookup is unavailable right now.';
     }
@@ -2051,7 +2154,8 @@ async function startRealtimeForBus(busNumber, busCode = null) {
   setCapacityMessage('');
   console.log('startRealtimeForBus searching live location for', { busNumber, busCode });
   try {
-    const { data, error } = await window.supabaseHelpers.getLatestActiveBusLocation(busNumber, busCode);
+    const { data, error } = await window.busTypeHelpers
+      .getLatestActiveBusLocation(busNumber, busCode);
 
     if (thisSearchId !== activeBusSearch) {
       return;
@@ -2067,6 +2171,8 @@ async function startRealtimeForBus(busNumber, busCode = null) {
         liveMessage.textContent = 'No live location available for this bus.';
       }
     } else {
+      setBusTypeBadges(data.bus_type);
+      updateSessionBusTypeBadge(busNumber, busCode, data.bus_type);
       updateCapacityFromRow(data);
       await updateLiveBusLocationFromRow(data, liveMessage);
     }
@@ -2136,6 +2242,15 @@ async function startRealtimeForBus(busNumber, busCode = null) {
       });
       updateCapacityFromRow(row);
 
+      if (Object.prototype.hasOwnProperty.call(row, 'bus_type')) {
+        setBusTypeBadges(row.bus_type);
+        updateSessionBusTypeBadge(
+          row.bus_number,
+          row.bus_code,
+          row.bus_type
+        );
+      }
+
       if (liveMessage) {
         console.log('Realtime event matched; updating live bus UI', {
           busNumber: row.bus_number,
@@ -2175,6 +2290,7 @@ async function showBusDetails(bus) {
   setResultTab('details');
   resetLiveStatus();
   resultTitle.textContent = `Bus ${normalizedBus.busNumber}`;
+  setBusTypeBadges(null);
   setPageTitle(normalizedBus.busNumber);
   if (reportIssueLink) {
     reportIssueLink.href =
@@ -2286,7 +2402,16 @@ searchForm.addEventListener('submit', async (event) => {
       clearActiveBusSessions();
       resultCard.hidden = true;
       mapWrapper.hidden = true;
-      renderBusSearchResults(matchingBuses, query);
+      let busTypesByNumber = new Map();
+      try {
+        busTypesByNumber = await window.busTypeHelpers
+          .getActiveBusTypesForNumbers(
+            matchingBuses.map((bus) => normalizeBusRecord(bus)?.busNumber)
+          );
+      } catch (error) {
+        console.warn('Could not load bus types for search results.', error);
+      }
+      renderBusSearchResults(matchingBuses, query, busTypesByNumber);
       searchMessage.textContent = `${matchingBuses.length} buses found. Select one to view details.`;
       return;
     }
@@ -2395,6 +2520,9 @@ searchResultsList.addEventListener('click', (event) => {
       };
       showBusDetails(selectedBus)
         .then(() => {
+          if (searchResultButton.dataset.busType) {
+            setBusTypeBadges(searchResultButton.dataset.busType);
+          }
           setConnectionError(false);
           searchMessage.textContent = `Showing details for bus ${selectedBus.busNumber}.`;
         })
@@ -2415,7 +2543,7 @@ activeSessionsList.addEventListener('click', (event) => {
 
   const busCode = button.dataset.busCode || null;
   const busNumber = button.dataset.busNumber;
-  selectActiveBusSession(busNumber, busCode);
+  selectActiveBusSession(busNumber, busCode, button.dataset.busType || null);
 });
 
 copyBusLinkBtn.addEventListener('click', () => {
@@ -2428,6 +2556,7 @@ copyBusLinkBtn.addEventListener('click', () => {
   window.openBusShareSheet({
     url: getBusSessionUrl(currentBusSessionCode),
     busNumber: currentBusNumber,
+    busType: currentBusType,
     trigger: copyBusLinkBtn
   });
 });
@@ -2576,6 +2705,18 @@ shareLocationBtn.addEventListener('click', () => {
     return;
   }
 
+  const chosenBusType = document.querySelector(
+    'input[name="shareBusType"]:checked'
+  )?.value;
+  if (!['ordinary', 'metro_express'].includes(chosenBusType)) {
+    busTypeChoiceHint.textContent =
+      'Please choose Ordinary or Metro Express before starting to share.';
+    document.querySelector('input[name="shareBusType"]')?.focus();
+    showToast('Please choose a bus type before starting to share.', true);
+    return;
+  }
+  selectedShareBusType = chosenBusType;
+
   let customDurationMilliseconds = null;
   if (timerSelect.value === 'custom') {
     const durationMinutes = Number(customDurationMinutes.value);
@@ -2603,6 +2744,7 @@ shareLocationBtn.addEventListener('click', () => {
     `🙌 Thank you for helping fellow riders! Your live location will help others know exactly where Bus ${busNumber} is.`,
     'We really appreciate you choosing to share and trust us with this. 💙',
     '',
+    `Bus type: ${chosenBusType === 'ordinary' ? 'Ordinary' : 'Metro Express'}`,
     `Sharing session: ${sessionCode} - ${routeLabel}`,
     'Would you like to start sharing?'
   ].join('\n');
@@ -2628,11 +2770,27 @@ shareLocationBtn.addEventListener('click', () => {
     customDurationMinutes.hidden = true;
   }
 
+  setBusTypeBadges(chosenBusType);
   startLocationSharing();
   if (isSharingActive) {
     locationPanel.hidden = false;
     sharingReminder.hidden = false;
   }
+});
+
+busTypeOptions.forEach((option) => {
+  option.addEventListener('change', () => {
+    if (!option.checked) {
+      return;
+    }
+    selectedShareBusType = option.value;
+    busTypeChoiceHint.textContent = 'Choose the type you are riding.';
+    try {
+      localStorage.setItem('apsrtc-live-bus-type', option.value);
+    } catch (error) {
+      console.warn('The selected bus type could not be saved.', error);
+    }
+  });
 });
 
 timerSelect.addEventListener('change', () => {
