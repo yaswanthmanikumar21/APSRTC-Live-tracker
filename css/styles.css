@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
-  --font-heading: "Avenir Next", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Telugu", sans-serif;
-  --font-body: "Avenir Next", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Telugu", sans-serif;
+  --font-heading: "Avenir Next", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Telugu", "Nirmala UI", sans-serif;
+  --font-body: "Avenir Next", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Telugu", "Nirmala UI", sans-serif;
   --bg: #f3f6f9;
   --card: #ffffff;
   --surface-input: #ffffff;
@@ -545,6 +545,30 @@ h1 {
   transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
 }
 
+.language-toggle {
+  min-height: 44px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.language-toggle:hover {
+  background: var(--surface-hover);
+  border-color: var(--control-hover-border);
+}
+
+.language-toggle:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .theme-toggle:hover {
   background: var(--surface-hover);
   border-color: var(--control-hover-border);
@@ -579,7 +603,8 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-toggle {
+  .theme-toggle,
+  .language-toggle {
     transition: none;
   }
 }
@@ -597,6 +622,29 @@ h2 {
 
 p {
   line-height: 1.5;
+}
+
+:root[lang="te"] body,
+:root[lang="te"] button,
+:root[lang="te"] input,
+:root[lang="te"] select,
+:root[lang="te"] textarea {
+  font-family: "Avenir Next", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Telugu", "Nirmala UI", sans-serif;
+  line-height: 1.6;
+}
+
+:root[lang="te"] h1,
+:root[lang="te"] h2,
+:root[lang="te"] h3,
+:root[lang="te"] h4,
+:root[lang="te"] p,
+:root[lang="te"] label,
+:root[lang="te"] dt,
+:root[lang="te"] dd,
+:root[lang="te"] summary,
+:root[lang="te"] .session-button,
+:root[lang="te"] .bus-card {
+  line-height: 1.6;
 }
 
 .home-link {

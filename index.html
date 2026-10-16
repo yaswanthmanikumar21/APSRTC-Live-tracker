@@ -39,38 +39,38 @@
   <body>
     <dialog id="sharingDisclaimer" class="sharing-disclaimer" aria-labelledby="sharingDisclaimerTitle">
       <div class="sharing-disclaimer__content">
-        <h2 id="sharingDisclaimerTitle">A quick note about location sharing</h2>
+        <h2 id="sharingDisclaimerTitle" data-i18n="sharingDisclaimerTitle">A quick note about location sharing</h2>
         <ul>
-          <li>Location sharing is optional and starts only when you tap “I'm on this bus”.</li>
-          <li>Your browser may ask you to allow location access; you may need to enable it in your browser settings.</li>
-          <li>Please share only when you are genuinely riding that bus so the information stays trustworthy.</li>
-          <li>Remember to stop sharing, or let it expire automatically, when your ride is done.</li>
-          <li>Your location is not linked to your identity and is used only to show live bus positions to other riders.</li>
-          <li>Accuracy depends on your device's GPS and network. We do our best, but cannot guarantee perfect accuracy; sorry for any inconvenience.</li>
-          <li>For the best experience, please keep this tab open while sharing your location - switching apps may pause your updates. Sorry for the inconvenience, we're working to improve this soon! 🙏</li>
-          <li>🙌 Thank you for helping fellow riders. Your contribution makes it easier for everyone to travel with confidence. 💙</li>
+          <li data-i18n="disclaimerOptional">Location sharing is optional and starts only when you tap “I'm on this bus”.</li>
+          <li data-i18n="disclaimerPermission">Your browser may ask you to allow location access; you may need to enable it in your browser settings.</li>
+          <li data-i18n="disclaimerRiding">Please share only when you are genuinely riding that bus so the information stays trustworthy.</li>
+          <li data-i18n="disclaimerStop">Remember to stop sharing, or let it expire automatically, when your ride is done.</li>
+          <li data-i18n="disclaimerPrivacy">Your location is not linked to your identity and is used only to show live bus positions to other riders.</li>
+          <li data-i18n="disclaimerAccuracy">Accuracy depends on your device's GPS and network. We do our best, but cannot guarantee perfect accuracy; sorry for any inconvenience.</li>
+          <li data-i18n="disclaimerBackground">For the best experience, please keep this tab open while sharing your location - switching apps may pause your updates. Sorry for the inconvenience, we're working to improve this soon! 🙏</li>
+          <li data-i18n="disclaimerThanks">🙌 Thank you for helping fellow riders. Your contribution makes it easier for everyone to travel with confidence. 💙</li>
         </ul>
-        <button id="dismissSharingDisclaimer" class="primary-button" type="button">OK, got it</button>
+        <button id="dismissSharingDisclaimer" class="primary-button" type="button" data-i18n="okayGotIt">OK, got it</button>
       </div>
     </dialog>
     <main class="page-shell">
       <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
       <div id="loadingIndicator" class="status-banner loading-banner" role="status">
-        Loading APSRTC Live...
+        <span data-i18n="loadingApp">Loading APSRTC Live...</span>
       </div>
       <div id="connectionError" class="status-banner error-banner" role="alert" hidden>
-        We're having trouble connecting right now. Please try again in a moment.
+        <span data-i18n="connectionError">We’re having trouble connecting right now. Please try again in a moment.</span>
       </div>
 
       <section class="hero-card">
         <div class="hero-copy">
-          <p class="eyebrow">Crowdsourced bus visibility</p>
+          <p class="eyebrow" data-i18n="eyebrow">Crowdsourced bus visibility</p>
           <h1>
-            <button id="homeLink" class="home-link" type="button" aria-label="APSRTC Live home">
+            <button id="homeLink" class="home-link" type="button" aria-label="APSRTC Live home" data-i18n-aria-label="homeLabel">
               <img class="brand-logo" src="Images/logo-icon.png" alt="" width="40" height="40" />
               <span>APSRTC Live</span>
             </button>
-            <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false">
+            <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false" data-i18n-aria-label="toggleDarkMode">
               <svg class="theme-toggle__sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <circle cx="12" cy="12" r="4"></circle>
                 <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path>
@@ -79,25 +79,27 @@
                 <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"></path>
               </svg>
             </button>
+            <button id="languageToggle" class="language-toggle" type="button" aria-label="Change language: English" aria-pressed="false">EN | తెలుగు</button>
           </h1>
-          <p class="tagline">Know where your bus is.</p>
+          <p class="tagline" data-i18n="tagline">Know where your bus is.</p>
           <p id="liveBusCounter" class="live-bus-counter" aria-live="polite">0 buses live now</p>
 
           <form id="searchForm" class="search-form">
-            <label class="sr-only" for="busNumber">Bus number</label>
+            <label class="sr-only" for="busNumber" data-i18n="busNumberLabel">Bus number</label>
             <input
               id="busNumber"
               name="busNumber"
               type="text"
               placeholder="Enter bus number"
+              data-i18n-placeholder="busNumberPlaceholder"
               autocomplete="off"
             />
-            <button type="submit">Find Bus</button>
+            <button type="submit" data-i18n="findBus">Find Bus</button>
             <button id="findNearbyBtn" type="button" class="nearby-button">
-              📍 Use my location
+              <span data-i18n="useMyLocation">📍 Use my location</span>
             </button>
             <button id="toggleAddBusBtn" type="button" class="secondary-button">
-              Add new bus
+              <span data-i18n="addNewBus">Add new bus</span>
             </button>
           </form>
 
@@ -105,31 +107,32 @@
             id="recentSearches"
             class="recent-searches"
             aria-label="Recently searched buses"
+            data-i18n-aria-label="recentSearches"
             hidden
           >
-            <span class="recent-searches-label">Recent:</span>
+            <span class="recent-searches-label" data-i18n="recent">Recent:</span>
             <div id="recentSearchChips" class="recent-search-chips"></div>
           </section>
 
           <section id="addBusSection" class="add-bus-section" hidden>
-            <h3>Add a new bus</h3>
+            <h3 data-i18n="addBusHeading">Add a new bus</h3>
             <form id="addBusForm" class="add-bus-form">
-              <label for="newBusNumber">Bus number *</label>
-              <input id="newBusNumber" name="newBusNumber" type="text" placeholder="28" required />
+              <label for="newBusNumber" data-i18n="busNumberRequired">Bus number *</label>
+              <input id="newBusNumber" name="newBusNumber" type="text" placeholder="28" required data-i18n-placeholder="sampleBusNumber" />
 
-              <label for="newBusRoute">Route *</label>
-              <input id="newBusRoute" name="newBusRoute" type="text" placeholder="RK Beach - Simhachalam" required />
+              <label for="newBusRoute" data-i18n="routeRequired">Route *</label>
+              <input id="newBusRoute" name="newBusRoute" type="text" placeholder="RK Beach - Simhachalam" required data-i18n-placeholder="sampleRoute" />
 
-              <label for="newBusStart">Starting point *</label>
-              <input id="newBusStart" name="newBusStart" type="text" placeholder="RK Beach" required />
+              <label for="newBusStart" data-i18n="startingPointRequired">Starting point *</label>
+              <input id="newBusStart" name="newBusStart" type="text" placeholder="RK Beach" required data-i18n-placeholder="sampleStartingPoint" />
 
-              <label for="newBusDestination">Destination *</label>
-              <input id="newBusDestination" name="newBusDestination" type="text" placeholder="Simhachalam" required />
+              <label for="newBusDestination" data-i18n="destinationRequired">Destination *</label>
+              <input id="newBusDestination" name="newBusDestination" type="text" placeholder="Simhachalam" required data-i18n-placeholder="sampleDestination" />
 
-              <label for="newBusStops">Stops (comma-separated)</label>
-              <input id="newBusStops" name="newBusStops" type="text" placeholder="RK Beach, Waltair, Siripuram" />
+              <label for="newBusStops" data-i18n="stopsCommaSeparated">Stops (comma-separated)</label>
+              <input id="newBusStops" name="newBusStops" type="text" placeholder="RK Beach, Waltair, Siripuram" data-i18n-placeholder="sampleStops" />
 
-              <button type="submit" class="primary-button">Create bus</button>
+              <button type="submit" class="primary-button" data-i18n="createBus">Create bus</button>
             </form>
             <p id="addBusMessage" class="form-message"></p>
           </section>
@@ -141,13 +144,13 @@
                   <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
                     <path d="M11.75 4.5 6.25 10l5.5 5.5M6.75 10h9"></path>
                   </svg>
-                  <span>Back</span>
+                  <span data-i18n="back">Back</span>
                 </button>
                 <h3 id="resultTitle">Bus details</h3>
               </div>
               <div class="share-link-control">
                 <button id="copyBusLinkBtn" type="button" class="secondary-button">
-                  🔗 Share
+                  <span data-i18n="share">🔗 Share</span>
                 </button>
                 <span id="copyBusLinkMessage" class="copy-link-message" aria-live="polite"></span>
               </div>
@@ -160,40 +163,40 @@
             </div>
 
             <div class="result-tabs">
-              <div class="tab-list" role="tablist" aria-label="Bus information">
-                <button id="detailsTab" class="result-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="detailsPanel" data-result-tab="details">Details</button>
-                <button id="liveTab" class="result-tab" type="button" role="tab" aria-selected="false" aria-controls="livePanel" data-result-tab="live">Live Status</button>
-                <button id="capacityTab" class="result-tab" type="button" role="tab" aria-selected="false" aria-controls="capacityPanelTab" data-result-tab="capacity">Capacity</button>
+              <div class="tab-list" role="tablist" aria-label="Bus information" data-i18n-aria-label="busInformation">
+                <button id="detailsTab" class="result-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="detailsPanel" data-result-tab="details" data-i18n="detailsTab">Details</button>
+                <button id="liveTab" class="result-tab" type="button" role="tab" aria-selected="false" aria-controls="livePanel" data-result-tab="live" data-i18n="liveStatus">Live Status</button>
+                <button id="capacityTab" class="result-tab" type="button" role="tab" aria-selected="false" aria-controls="capacityPanelTab" data-result-tab="capacity" data-i18n="capacity">Capacity</button>
               </div>
 
               <section id="detailsPanel" class="tab-panel" role="tabpanel" aria-labelledby="detailsTab" data-result-panel="details">
                 <dl class="detail-list">
                   <div class="detail-item">
-                    <dt>Bus number</dt>
+                    <dt data-i18n="busNumber">Bus number</dt>
                     <dd id="resultNumber">-</dd>
                   </div>
                   <div class="detail-item">
-                    <dt>Route</dt>
+                    <dt data-i18n="route">Route</dt>
                     <dd id="resultRoute">-</dd>
                   </div>
                   <div class="detail-item">
-                    <dt>Starting point</dt>
+                    <dt data-i18n="startingPoint">Starting point</dt>
                     <dd id="resultStart">-</dd>
                   </div>
                   <div class="detail-item">
-                    <dt>Destination</dt>
+                    <dt data-i18n="destination">Destination</dt>
                     <dd id="resultDestination">-</dd>
                   </div>
                   <div class="detail-item">
-                    <dt>Stops</dt>
+                    <dt data-i18n="stops">Stops</dt>
                     <dd><ul id="resultStops" class="stop-list"></ul></dd>
                   </div>
                   <div class="detail-item">
-                    <dt>Tracking status</dt>
+                    <dt data-i18n="trackingStatus">Tracking status</dt>
                     <dd id="resultStatus">-</dd>
                   </div>
                   <div class="detail-item">
-                    <dt>Bus session</dt>
+                    <dt data-i18n="busSession">Bus session</dt>
                     <dd id="resultSessionCode">-</dd>
                   </div>
                 </dl>
@@ -204,20 +207,20 @@
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  🚩 Report an issue
+                  <span data-i18n="reportIssue">🚩 Report an issue</span>
                 </a>
               </section>
 
               <section id="livePanel" class="tab-panel" role="tabpanel" aria-labelledby="liveTab" data-result-panel="live" hidden>
                 <section class="live-status-panel" aria-labelledby="liveStatusHeading">
-                  <h4 id="liveStatusHeading">Live Status</h4>
+                  <h4 id="liveStatusHeading" data-i18n="liveStatus">Live Status</h4>
                   <dl class="live-status-list" aria-live="polite">
                     <div>
-                      <dt>Speed</dt>
+                      <dt data-i18n="speed">Speed</dt>
                       <dd id="liveSpeed">Calculating...</dd>
                     </div>
                     <div>
-                      <dt>Movement</dt>
+                      <dt data-i18n="movement">Movement</dt>
                       <dd id="liveDirection" class="movement-indicator" aria-live="polite">
                         <svg
                           id="liveDirectionArrow"
@@ -240,7 +243,7 @@
                       </dd>
                     </div>
                     <div>
-                      <dt>Last movement</dt>
+                      <dt data-i18n="lastMovement">Last movement</dt>
                       <dd id="liveMovement">Waiting for movement data.</dd>
                     </div>
                   </dl>
@@ -248,22 +251,22 @@
                 <div id="mapWrapper" class="map-wrapper" hidden>
                   <p class="map-note">
                     <span id="liveLocationMessage"></span>
-                    <span id="liveLocationWarning" class="map-note__warning" hidden>
+                    <span id="liveLocationWarning" class="map-note__warning" hidden data-i18n="locationOutdated">
                       ⚠️ Location may be outdated
                     </span>
                   </p>
                   <p id="liveLocationStaleWarning" class="map-stale-warning" hidden></p>
-                  <div id="map" class="map-container" aria-label="Bus map location"></div>
+                  <div id="map" class="map-container" aria-label="Bus map location" data-i18n-aria-label="mapLocation"></div>
                 </div>
               </section>
 
               <section id="capacityPanelTab" class="tab-panel" role="tabpanel" aria-labelledby="capacityTab" data-result-panel="capacity" hidden>
                 <div id="capacityPanel" class="capacity-panel">
                   <h4 id="capacityStatus">Capacity: Not reported yet</h4>
-                  <div class="capacity-actions" role="group" aria-label="Report bus capacity">
-                    <button type="button" class="capacity-button" data-capacity-status="empty">🟢 Empty</button>
-                    <button type="button" class="capacity-button" data-capacity-status="half_full">🟡 Half Full</button>
-                    <button type="button" class="capacity-button" data-capacity-status="full">🔴 Full</button>
+                  <div class="capacity-actions" role="group" aria-label="Report bus capacity" data-i18n-aria-label="reportCapacity">
+                    <button type="button" class="capacity-button" data-capacity-status="empty" data-i18n="empty">🟢 Empty</button>
+                    <button type="button" class="capacity-button" data-capacity-status="half_full" data-i18n="halfFull">🟡 Half Full</button>
+                    <button type="button" class="capacity-button" data-capacity-status="full" data-i18n="full">🔴 Full</button>
                   </div>
                   <p id="capacityMessage" class="capacity-message" aria-live="polite"></p>
                 </div>
@@ -272,33 +275,33 @@
 
             <div class="share-section">
               <fieldset class="bus-type-choice" aria-describedby="busTypeChoiceHint">
-                <legend>Choose the bus type before sharing</legend>
+                <legend data-i18n="chooseBusType">Choose the bus type before sharing</legend>
                 <div class="bus-type-choice__options">
                   <label class="bus-type-choice__option">
                     <input type="radio" name="shareBusType" value="ordinary" required />
-                    <span>Ordinary</span>
+                    <span data-i18n="ordinary">Ordinary</span>
                   </label>
                   <label class="bus-type-choice__option">
                     <input type="radio" name="shareBusType" value="metro_express" />
-                    <span>Metro Express</span>
+                    <span data-i18n="metroExpress">Metro Express</span>
                   </label>
                 </div>
-                <p id="busTypeChoiceHint" class="bus-type-choice__hint" role="status">Choose the type you are riding.</p>
+                <p id="busTypeChoiceHint" class="bus-type-choice__hint" role="status" data-i18n="chooseRidingType">Choose the type you are riding.</p>
               </fieldset>
               <button id="shareLocationBtn" class="share-button" type="button">
-                📍 I'm on this bus
+                <span data-i18n="onThisBus">📍 I’m on this bus</span>
               </button>
 
               <div class="share-controls">
-                <label class="share-label" for="timerSelect">Sharing time</label>
+                <label class="share-label" for="timerSelect" data-i18n="sharingTime">Sharing time</label>
                 <select id="timerSelect" class="share-select">
-                  <option value="900000">15 minutes</option>
-                  <option value="1800000">30 minutes</option>
-                  <option value="3600000">1 hour</option>
-                  <option value="0">Until I stop</option>
-                  <option value="custom">Custom</option>
+                  <option value="900000" data-i18n="fifteenMinutes">15 minutes</option>
+                  <option value="1800000" data-i18n="thirtyMinutes">30 minutes</option>
+                  <option value="3600000" data-i18n="oneHour">1 hour</option>
+                  <option value="0" data-i18n="untilIStop">Until I stop</option>
+                  <option value="custom" data-i18n="custom">Custom</option>
                 </select>
-                <label class="sr-only" for="customDurationMinutes">Custom sharing duration in minutes</label>
+                <label class="sr-only" for="customDurationMinutes" data-i18n="customMinutes">Custom sharing duration in minutes</label>
                 <input
                   id="customDurationMinutes"
                   class="custom-duration-input"
@@ -307,31 +310,33 @@
                   step="1"
                   inputmode="numeric"
                   placeholder="Minutes"
+                  data-i18n-placeholder="minutes"
                   aria-label="Custom sharing duration in minutes"
+                  data-i18n-aria-label="customMinutes"
                   hidden
                 />
               </div>
 
-              <p class="gps-note">GPS updates depend on your device and may take 15-60 seconds between updates.</p>
+              <p class="gps-note" data-i18n="gpsNote">GPS updates depend on your device and may take 15-60 seconds between updates.</p>
 
               <button id="stopSharingBtn" class="stop-button" type="button" hidden>
-                Stop Sharing
+                <span data-i18n="stopSharing">Stop Sharing</span>
               </button>
             </div>
 
             <div id="locationPanel" class="location-panel" hidden>
-              <h4>Location sharing</h4>
+              <h4 data-i18n="locationSharing">Location sharing</h4>
               <p id="locationStatusText" class="location-status">
                 Location sharing is inactive.
               </p>
               <p id="sharingReminder" class="sharing-reminder" role="status" hidden>
-                📱 Keep this tab open while sharing for the best results - switching apps may pause your updates. Sorry for the inconvenience, we're working to improve this soon! 🙏
+                <span data-i18n="sharingReminder">📱 Keep this tab open while sharing for the best results - switching apps may pause your updates. Sorry for the inconvenience, we're working to improve this soon! 🙏</span>
               </p>
               <details class="technical-details">
-                <summary>Show technical details</summary>
-                <p><strong>Latitude:</strong> <span id="latitudeValue">-</span></p>
-                <p><strong>Longitude:</strong> <span id="longitudeValue">-</span></p>
-                <p><strong>Last location update:</strong> <span id="lastUpdateValue">-</span></p>
+                <summary data-i18n="technicalDetails">Show technical details</summary>
+                <p><strong data-i18n="latitude">Latitude:</strong> <span id="latitudeValue">-</span></p>
+                <p><strong data-i18n="longitude">Longitude:</strong> <span id="longitudeValue">-</span></p>
+                <p><strong data-i18n="lastLocationUpdate">Last location update:</strong> <span id="lastUpdateValue">-</span></p>
                 <p id="gpsDebugText" class="location-status">
                   GPS debug: waiting to start.
                 </p>
@@ -340,11 +345,11 @@
           </div>
 
           <p id="searchMessage" class="search-message">
-            Search for a bus number to view live route details.
+            <span data-i18n="searchPrompt">Search for a bus number to view live route details.</span>
           </p>
 
           <section id="searchResultsContainer" class="active-sessions-container" hidden>
-            <h3>Search results</h3>
+            <h3 data-i18n="searchResults">Search results</h3>
             <p id="searchResultsMessage" class="active-sessions-message"></p>
             <ul id="searchResultsList" class="active-session-list"></ul>
           </section>
@@ -353,7 +358,7 @@
 
       <section class="catalog-section" aria-labelledby="busCatalogHeading">
         <div class="section-header">
-          <h2 id="busCatalogHeading">Available buses</h2>
+          <h2 id="busCatalogHeading" data-i18n="availableBuses">Available buses</h2>
         </div>
 
         <div id="busList" class="bus-list"></div>
@@ -367,30 +372,33 @@
       aria-modal="true"
       aria-labelledby="busShareSheetTitle"
       aria-label="Share this bus"
+      data-i18n-aria-label="shareThisBus"
     >
       <section class="share-sheet__panel">
         <header class="share-sheet__header">
-          <h2 id="busShareSheetTitle">Share this bus</h2>
+          <h2 id="busShareSheetTitle" data-i18n="shareThisBus">Share this bus</h2>
           <button
             id="shareSheetClose"
             class="share-sheet__close"
             type="button"
             aria-label="Close share sheet"
+            data-i18n-aria-label="closeShareSheet"
           >×</button>
         </header>
-        <div class="share-sheet__options" aria-label="Share options">
-          <button class="share-sheet__option" type="button" data-share-action="copy">Copy Link</button>
-          <button class="share-sheet__option" type="button" data-share-action="whatsapp">WhatsApp</button>
-          <button class="share-sheet__option" type="button" data-share-action="telegram">Telegram</button>
-          <button class="share-sheet__option" type="button" data-share-action="x">X</button>
-          <button class="share-sheet__option" type="button" data-share-action="email">Email</button>
-          <button class="share-sheet__option" type="button" data-share-action="messages">Messages</button>
+        <div class="share-sheet__options" aria-label="Share options" data-i18n-aria-label="shareOptions">
+          <button class="share-sheet__option" type="button" data-share-action="copy" data-i18n="copyLink">Copy Link</button>
+          <button class="share-sheet__option" type="button" data-share-action="whatsapp" data-i18n="whatsapp">WhatsApp</button>
+          <button class="share-sheet__option" type="button" data-share-action="telegram" data-i18n="telegram">Telegram</button>
+          <button class="share-sheet__option" type="button" data-share-action="x" data-i18n="xSocial">X</button>
+          <button class="share-sheet__option" type="button" data-share-action="email" data-i18n="email">Email</button>
+          <button class="share-sheet__option" type="button" data-share-action="messages" data-i18n="messages">Messages</button>
           <button
             id="shareSheetQrOption"
             class="share-sheet__option"
             type="button"
             data-share-action="qr"
             hidden
+            data-i18n="shareViaQr"
           >Share via QR</button>
           <button
             id="shareSheetMoreOption"
@@ -398,52 +406,39 @@
             type="button"
             data-share-action="more"
             hidden
+            data-i18n="moreOptions"
           >More options</button>
         </div>
-        <section id="shareSheetQrPanel" class="share-sheet__qr" aria-label="Bus link QR code" hidden>
-          <img id="shareSheetQrImage" alt="QR code for this bus link" />
-          <a id="shareSheetQrDownload" class="secondary-button" download="share-qr.svg">Download QR</a>
+        <section id="shareSheetQrPanel" class="share-sheet__qr" aria-label="Bus link QR code" data-i18n-aria-label="qrCodeLabel" hidden>
+          <img id="shareSheetQrImage" alt="QR code for this bus link" data-i18n-alt="qrCodeAlt" />
+          <a id="shareSheetQrDownload" class="secondary-button" download="share-qr.svg" data-i18n="downloadQr">Download QR</a>
         </section>
         <p id="shareSheetMessage" class="share-sheet__message" role="status" aria-live="polite"></p>
       </section>
     </dialog>
 
     <footer class="site-footer">
-      <nav class="footer-nav" aria-label="Site information">
+      <nav class="footer-nav" aria-label="Site information" data-i18n-aria-label="siteInformation">
         <details class="footer-disclosure">
-          <summary>About</summary>
-          <p>
-            APSRTC Live is a free, crowdsourced Visakhapatnam bus tracker using
-            rider-submitted GPS data. It is a community project, not officially
-            affiliated with APSRTC.
-          </p>
+          <summary data-i18n="about">About</summary>
+          <p data-i18n="aboutText">APSRTC Live is a free community bus tracker for Visakhapatnam. It is not officially affiliated with APSRTC.</p>
         </details>
         <details class="footer-disclosure">
-          <summary>How it works</summary>
-          <p>
-            Search for your bus to see its live location when someone shares it.
-            If you are riding, tap “I'm on this bus” to help other riders.
-          </p>
+          <summary data-i18n="howItWorks">How it works</summary>
+          <p data-i18n="howItWorksText">Search for your bus to see its live location when someone shares it. If you are riding, tap “I'm on this bus” to help others.</p>
         </details>
         <details class="footer-disclosure">
-          <summary>Privacy</summary>
-          <p>
-            Location is collected only when a user taps “I'm on this bus”,
-            shared temporarily, expires automatically, and is not linked to
-            personal identity. It is used only to show bus positions.
-          </p>
+          <summary data-i18n="privacy">Privacy</summary>
+          <p data-i18n="privacyText">Location is shared only when a user chooses to share. It expires automatically and is not linked to personal identity.</p>
         </details>
         <details class="footer-disclosure">
-          <summary>Disclaimer</summary>
-          <p>
-            This crowdsourced community tool depends on user participation;
-            location may not always be available or accurate.
-          </p>
+          <summary data-i18n="disclaimer">Disclaimer</summary>
+          <p data-i18n="disclaimerText">This community tool depends on rider participation. Location may not always be available or accurate.</p>
         </details>
         <details class="footer-disclosure">
-          <summary>Contact</summary>
+          <summary data-i18n="contact">Contact</summary>
           <p>
-            Report issues or send feedback to
+            <span data-i18n="contactText">Report issues or send feedback to</span>
             <a
               href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=apsrtclive@gmail.com&amp;su=APSRTC%20Live%20Feedback"
               target="_blank"
@@ -452,9 +447,10 @@
           </p>
         </details>
       </nav>
-      <p class="footer-credits">Share sheet inspired by VengeanceUI. QR by qrcode-generator (MIT).</p>
+      <p class="footer-credits" data-i18n="footerCredits">Share sheet inspired by VengeanceUI. QR by qrcode-generator (MIT).</p>
     </footer>
 
+    <script src="js/i18n.js"></script>
     <script src="js/vendor/gsap.min.js"></script>
     <script src="js/vendor/confetti.browser.js"></script>
     <script

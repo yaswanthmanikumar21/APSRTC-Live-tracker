@@ -49,7 +49,8 @@
     const installButton = document.createElement('button');
     installButton.type = 'button';
     installButton.className = 'secondary-button pwa-install-button';
-    installButton.textContent = 'Install app';
+    installButton.dataset.i18n = 'installApp';
+    installButton.textContent = window.t?.('installApp') || 'Install app';
     installButton.style.background = 'var(--surface-soft)';
     installButton.style.border = '1px solid var(--border)';
     installButton.style.borderRadius = '10px';
@@ -75,13 +76,21 @@
     hint.hidden = true;
 
     const hintText = document.createElement('span');
-    hintText.textContent = 'Tap Share, then Add to Home Screen';
+    hintText.dataset.i18n = 'iosInstallHint';
+    hintText.textContent = window.t?.('iosInstallHint') ||
+      'Tap Share, then Add to Home Screen';
 
     const dismissButton = document.createElement('button');
     dismissButton.type = 'button';
     dismissButton.className = 'pwa-install-hint__dismiss';
     dismissButton.setAttribute('aria-label', 'Dismiss install hint');
-    dismissButton.textContent = 'Dismiss';
+    dismissButton.dataset.i18n = 'dismiss';
+    dismissButton.dataset.i18nAriaLabel = 'dismissInstallHint';
+    dismissButton.textContent = window.t?.('dismiss') || 'Dismiss';
+    dismissButton.setAttribute(
+      'aria-label',
+      window.t?.('dismissInstallHint') || 'Dismiss install hint'
+    );
     dismissButton.style.border = '0';
     dismissButton.style.background = 'transparent';
     dismissButton.style.color = 'var(--primary)';

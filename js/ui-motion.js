@@ -100,7 +100,10 @@
 
       const render = (value) => {
         const rounded = Math.max(0, Math.round(value));
-        counter.textContent = `${rounded} ${rounded === 1 ? 'bus' : 'buses'} live now`;
+        const key = rounded === 1 ? 'liveBusCountOne' : 'liveBusCount';
+        counter.textContent = typeof window.t === 'function'
+          ? window.t(key, { count: rounded })
+          : `${rounded} ${rounded === 1 ? 'bus' : 'buses'} live now`;
       };
 
       const gsap = getGsap();
@@ -185,4 +188,8 @@
     updateLiveCount,
     sharingStarted
   };
+  document.addEventListener('languagechange', () => {
+    updateLiveCount(displayedLiveCount);
+  });
+  updateLiveCount(0);
 })();
