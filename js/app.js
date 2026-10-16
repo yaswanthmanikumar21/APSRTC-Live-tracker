@@ -1662,6 +1662,7 @@ function setBackgroundGpsWorkerActive(isActive) {
 
 function stopLocationSharing(message = 'Location sharing stopped.') {
   isSharingActive = false;
+  window.SessionControl?.clearSession();
   if (window.NativeTracking?.isNative()) {
     window.NativeTracking.stop();
   }
@@ -1852,7 +1853,7 @@ function handleNativeTrackingError(message, openSettings) {
   locationStatusText.append(' ', settingsButton);
 }
 
-function startLocationSharing() {
+function startLocationSharing(expiresAtOverride = null) {
   const isNative = window.NativeTracking?.isNative();
   if (!isNative && !navigator.geolocation) {
     stopLocationSharing('Location is not supported by this browser.');
@@ -1887,7 +1888,9 @@ function startLocationSharing() {
 
   busTypeUpdateStarted = false;
   isSharingActive = true;
-  const selectedDuration = Number(timerSelect.value);
+  const selectedDuration = expiresAtOverride
+    ? Math.max(0, new Date(expiresAtOverride).getTime() - Date.now())
+    : Number(timerSelect.value);
 
   locationPanel.hidden = false;
   locationStatusText.textContent = 'Requesting your location...';
@@ -1963,9 +1966,23 @@ function startLocationSharing() {
 
   if (selectedDuration > 0) {
     locationTimer = setTimeout(() => {
+      window.SessionControl?.endShareSession(
+        currentBusSessionCode,
+        currentBusNumber
+      );
       stopLocationSharing('Location sharing stopped.');
     }, selectedDuration);
   }
+
+  window.SessionControl?.saveSession({
+    busNumber: currentBusNumber,
+    busCode: currentBusSessionCode,
+    busType: selectedShareBusType,
+    expiresAt: expiresAtOverride || getExpiresAt(selectedDuration)
+  });
+  showToast(
+    'Keep this app open in your recent apps while sharing. Swiping it away stops sharing.'
+  );
 }
 
 function clearLiveBusMarker() {
@@ -2266,6 +2283,44 @@ async function startRealtimeForBus(busNumber, busCode = null) {
       }
 
       const liveMessage = document.getElementById('liveLocationMessage');
+      const expiresAt = row.expires_at
+        ? new Date(row.expires_at).getTime()
+        : null;
+      if (expiresAt !== null && expiresAt <= Date.now()) {
+        activeSessionsList.querySelectorAll('.session-button').forEach((button) => {
+          const matchesSession = busCode
+            ? button.dataset.busCode === busCode
+            : button.dataset.busNumber === busNumber;
+          if (matchesSession) {
+            button.closest('.session-item')?.remove();
+          }
+        });
+        activeBusSessions = activeBusSessions.filter((session) => (
+          busCode
+            ? session.bus_code !== busCode
+            : session.bus_number !== busNumber
+        ));
+        if (!activeSessionsList.children.length) {
+          activeSessionsMessage.textContent = 'No active buses right now.';
+        }
+        if (liveMessage) {
+          liveMessage.textContent = 'Sharing stopped';
+        }
+        const warning = document.getElementById('liveLocationWarning');
+        const staleWarning = document.getElementById('liveLocationStaleWarning');
+        if (warning) {
+          warning.hidden = true;
+        }
+        if (staleWarning) {
+          staleWarning.hidden = true;
+          staleWarning.textContent = '';
+        }
+        liveMessage?.parentElement?.classList.remove('map-note--warning');
+        clearBusLocationTicker();
+        clearLiveBusMarker();
+        return;
+      }
+
       console.log('Calling updateCapacityFromRow for matched Realtime event', {
         busNumber: row.bus_number,
         busCode: row.bus_code,
@@ -2833,6 +2888,10 @@ timerSelect.addEventListener('change', () => {
 });
 
 stopSharingBtn.addEventListener('click', () => {
+  window.SessionControl?.endShareSession(
+    currentBusSessionCode,
+    currentBusNumber
+  );
   stopLocationSharing('Location sharing stopped.');
 });
 
@@ -2865,6 +2924,82 @@ window.addEventListener('beforeunload', () => {
 homeLink.addEventListener('click', returnToHome);
 detailsBackBtn.addEventListener('click', returnFromBusDetails);
 
+async function resumeSavedShareSession(session) {
+  if (!window.supabaseHelpers) {
+    showToast('Could not reconnect to the bus. Please try again.', true);
+    return;
+  }
+
+  try {
+    const { data, error } = await window.supabaseHelpers.getBusByNumber(
+      session.busNumber
+    );
+    if (error) {
+      throw error;
+    }
+
+    const buses = Array.isArray(data) ? data : data ? [data] : [];
+    const bus = buses.find((record) => (
+      String(record.bus_number).trim().toLowerCase() ===
+      session.busNumber.trim().toLowerCase()
+    ));
+    const normalizedBus = normalizeBusRecord(bus);
+    if (!normalizedBus) {
+      throw new Error('The saved bus could not be found.');
+    }
+
+    await showBusDetails(normalizedBus);
+    currentBusNumber = normalizedBus.busNumber;
+    currentBusSessionCode = session.busCode || null;
+    selectedShareBusType = ['ordinary', 'metro_express'].includes(session.busType)
+      ? session.busType
+      : null;
+    busTypeOptions.forEach((option) => {
+      option.checked = option.value === selectedShareBusType;
+    });
+    setBusTypeBadges(selectedShareBusType);
+    resultSessionCode.textContent = currentBusSessionCode || '-';
+
+    if (session.expiresAt) {
+      const remainingMilliseconds =
+        new Date(session.expiresAt).getTime() - Date.now();
+      if (remainingMilliseconds <= 0) {
+        await window.SessionControl.endShareSession(
+          session.busCode,
+          session.busNumber
+        );
+        window.SessionControl.clearSession();
+        showToast('That sharing session has expired.', true);
+        return;
+      }
+
+      let durationOption = timerSelect.querySelector(
+        '[data-resume-duration="true"]'
+      );
+      if (!durationOption) {
+        durationOption = document.createElement('option');
+        durationOption.dataset.resumeDuration = 'true';
+        timerSelect.appendChild(durationOption);
+      }
+      durationOption.value = String(remainingMilliseconds);
+      durationOption.textContent = 'Remaining session time';
+      timerSelect.value = durationOption.value;
+    } else {
+      timerSelect.value = '0';
+    }
+    customDurationMinutes.hidden = true;
+
+    startLocationSharing(session.expiresAt || null);
+    if (isSharingActive) {
+      locationPanel.hidden = false;
+      sharingReminder.hidden = false;
+    }
+  } catch (error) {
+    console.error('Could not resume the saved sharing session.', error);
+    showToast('Could not resume sharing. Please try again.', true);
+  }
+}
+
 async function initializeApp() {
   initMap();
   renderBusCatalogSkeletons();
@@ -2884,6 +3019,14 @@ async function initializeApp() {
     setConnectionError(true);
   } finally {
     hideLoadingIndicator();
+    window.SessionControl?.initialize({
+      onResume: resumeSavedShareSession,
+      onStop: () => {
+        stopLocationSharing('Location sharing stopped.');
+      }
+    }).catch((error) => {
+      console.error('Could not initialize saved sharing session controls.', error);
+    });
   }
 }
 
