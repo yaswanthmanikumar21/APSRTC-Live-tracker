@@ -1607,6 +1607,10 @@ function startGpsRefreshLoop() {
 }
 
 function setBackgroundGpsWorkerActive(isActive) {
+  if (window.NativeTracking?.isNative()) {
+    return;
+  }
+
   if (!isActive) {
     gpsBackupWorker?.postMessage({ type: 'stop' });
     return;
@@ -1658,6 +1662,9 @@ function setBackgroundGpsWorkerActive(isActive) {
 
 function stopLocationSharing(message = 'Location sharing stopped.') {
   isSharingActive = false;
+  if (window.NativeTracking?.isNative()) {
+    window.NativeTracking.stop();
+  }
   clearGpsRefreshInterval();
   clearForcedRefreshInterval();
   clearSenderLocationTicker();
@@ -1829,8 +1836,25 @@ function updateUserLocation(position) {
   });
 }
 
+function handleNativeTrackingError(message, openSettings) {
+  locationStatusText.textContent = message;
+  if (typeof openSettings !== 'function') {
+    return;
+  }
+
+  const settingsButton = document.createElement('button');
+  settingsButton.type = 'button';
+  settingsButton.className = 'primary-button';
+  settingsButton.textContent = 'Open app settings';
+  settingsButton.addEventListener('click', () => {
+    openSettings();
+  });
+  locationStatusText.append(' ', settingsButton);
+}
+
 function startLocationSharing() {
-  if (!navigator.geolocation) {
+  const isNative = window.NativeTracking?.isNative();
+  if (!isNative && !navigator.geolocation) {
     stopLocationSharing('Location is not supported by this browser.');
     return;
   }
@@ -1865,25 +1889,6 @@ function startLocationSharing() {
   isSharingActive = true;
   const selectedDuration = Number(timerSelect.value);
 
-  forcedRefreshInterval = window.setInterval(() => {
-    if (!isSharingActive || !navigator.geolocation) {
-      clearForcedRefreshInterval();
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => updateUserLocation(position),
-      (error) => {
-        console.warn('Forced GPS refresh failed', error);
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 8000
-      }
-    );
-  }, 15000);
-
   locationPanel.hidden = false;
   locationStatusText.textContent = 'Requesting your location...';
   latitudeValue.textContent = '-';
@@ -1898,37 +1903,63 @@ function startLocationSharing() {
     error: 'none'
   });
 
-  watchId = navigator.geolocation.watchPosition(
-    (position) => updateUserLocation(position),
-    (error) => {
-      console.error('Geolocation watch error', error);
-      let message = 'Unable to get your location.';
-      setGpsDebugState({
-        status: 'geolocation error',
-        callbackTime: 'none',
-        latitude: 'none',
-        longitude: 'none',
-        error: message
-      });
-
-      if (error.code === error.PERMISSION_DENIED) {
-        message = 'Location permission denied.';
-      } else if (error.code === error.POSITION_UNAVAILABLE) {
-        message = 'Location unavailable.';
-      } else if (error.code === error.TIMEOUT) {
-        message = 'Location request timed out.';
+  if (isNative) {
+    window.NativeTracking.start(
+      (position) => updateUserLocation(position),
+      handleNativeTrackingError
+    );
+  } else {
+    forcedRefreshInterval = window.setInterval(() => {
+      if (!isSharingActive || !navigator.geolocation) {
+        clearForcedRefreshInterval();
+        return;
       }
 
-      stopLocationSharing(message);
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 8000,
-      maximumAge: 0
-    }
-  );
+      navigator.geolocation.getCurrentPosition(
+        (position) => updateUserLocation(position),
+        (error) => {
+          console.warn('Forced GPS refresh failed', error);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 8000
+        }
+      );
+    }, 15000);
 
-  requestWakeLock();
+    watchId = navigator.geolocation.watchPosition(
+      (position) => updateUserLocation(position),
+      (error) => {
+        console.error('Geolocation watch error', error);
+        let message = 'Unable to get your location.';
+        setGpsDebugState({
+          status: 'geolocation error',
+          callbackTime: 'none',
+          latitude: 'none',
+          longitude: 'none',
+          error: message
+        });
+
+        if (error.code === error.PERMISSION_DENIED) {
+          message = 'Location permission denied.';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = 'Location unavailable.';
+        } else if (error.code === error.TIMEOUT) {
+          message = 'Location request timed out.';
+        }
+
+        stopLocationSharing(message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 0
+      }
+    );
+
+    requestWakeLock();
+  }
 
   if (selectedDuration > 0) {
     locationTimer = setTimeout(() => {
@@ -2814,7 +2845,9 @@ new MutationObserver(() => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     setBackgroundGpsWorkerActive(false);
-    requestWakeLock();
+    if (!window.NativeTracking?.isNative()) {
+      requestWakeLock();
+    }
   } else {
     setBackgroundGpsWorkerActive(true);
   }
@@ -2822,6 +2855,9 @@ document.addEventListener('visibilitychange', () => {
 
 window.addEventListener('beforeunload', () => {
   clearNearbyBusTimers();
+  if (window.NativeTracking?.isNative()) {
+    window.NativeTracking.stop();
+  }
   gpsBackupWorker?.terminate();
   stopRealtimeSubscription();
 });
