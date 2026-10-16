@@ -1615,6 +1615,17 @@ p {
   font-size: 0.9rem;
 }
 
+.footer-page-link {
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.footer-page-link:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
 .footer-disclosure summary {
   color: var(--primary);
   font-weight: 700;
