@@ -343,6 +343,7 @@ textarea::placeholder {
   font-size: 1.6rem;
   line-height: 1;
   cursor: pointer;
+  transition: transform 120ms ease;
 }
 
 .share-sheet__options {
@@ -362,7 +363,7 @@ textarea::placeholder {
   font-weight: 700;
   text-align: center;
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
 }
 
 .share-sheet__option:hover,
@@ -373,7 +374,7 @@ textarea::placeholder {
 
 .share-sheet__option:active,
 .share-sheet__close:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .share-sheet__option:focus-visible,
@@ -541,7 +542,7 @@ h1 {
   background: var(--surface-soft);
   color: var(--text);
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
 }
 
 .theme-toggle:hover {
@@ -550,7 +551,7 @@ h1 {
 }
 
 .theme-toggle:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .theme-toggle:focus-visible {
@@ -692,7 +693,8 @@ p {
     background-color 140ms ease,
     border-color 140ms ease,
     box-shadow 140ms ease,
-    color 140ms ease;
+    color 140ms ease,
+    transform 120ms ease;
 }
 
 .session-bus-label {
@@ -888,7 +890,7 @@ p {
     background-color 140ms ease,
     border-color 140ms ease,
     box-shadow 140ms ease,
-    transform 140ms ease;
+    transform 120ms ease;
 }
 
 .details-back-button svg {
@@ -908,7 +910,7 @@ p {
 }
 
 .details-back-button:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .details-back-button:focus-visible {
@@ -1225,6 +1227,40 @@ p {
   border-color: var(--capacity-full-border);
   background: var(--capacity-full-bg);
   color: var(--capacity-full-text);
+}
+
+.capacity-status-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.95rem;
+}
+
+.capacity-status-pill[data-capacity-status="empty"] {
+  border-color: var(--capacity-empty-border);
+  background: var(--capacity-empty-bg);
+  color: var(--capacity-empty-text);
+}
+
+.capacity-status-pill[data-capacity-status="half_full"] {
+  border-color: var(--capacity-half-border);
+  background: var(--capacity-half-bg);
+  color: var(--capacity-half-text);
+}
+
+.capacity-status-pill[data-capacity-status="full"] {
+  border-color: var(--capacity-full-border);
+  background: var(--capacity-full-bg);
+  color: var(--capacity-full-text);
+}
+
+.capacity-status-pill[data-capacity-status="unreported"] {
+  background: var(--surface-soft);
+  color: var(--muted);
 }
 
 .capacity-button:disabled {
@@ -1596,7 +1632,7 @@ p {
   transition:
     border-color 140ms ease,
     box-shadow 140ms ease,
-    transform 140ms ease;
+    transform 120ms ease;
 }
 
 .bus-card:hover {
@@ -1680,6 +1716,52 @@ p {
   font-weight: 700;
 }
 
+.bus-live-dot {
+  display: inline-block;
+  width: 0.58em;
+  height: 0.58em;
+  margin-right: 0.45em;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45);
+  vertical-align: 0.02em;
+  animation: live-dot-pulse 1.6s ease-out infinite;
+}
+
+.bus-live-dot--label {
+  margin-right: 0.5em;
+}
+
+@keyframes live-dot-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45);
+  }
+
+  70% {
+    box-shadow: 0 0 0 7px rgba(22, 163, 74, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+.live-update-flash {
+  animation: live-update-highlight 600ms ease-out;
+}
+
+@keyframes live-update-highlight {
+  0% {
+    background-color: var(--surface-active);
+    box-shadow: 0 0 0 4px var(--surface-active);
+  }
+
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 .bus-status-unavailable {
   color: var(--muted);
 }
@@ -1697,6 +1779,68 @@ p {
 
 .report-issue-link:hover {
   text-decoration: underline;
+}
+
+button:active,
+.bus-card:active,
+.search-form button:active,
+.secondary-button:active,
+.primary-button:active,
+.share-button:active,
+.stop-button:active,
+.capacity-button:active,
+.result-tab:active,
+.recent-search-chip:active,
+.session-button:active,
+.share-sheet__option:active,
+.share-sheet__close:active,
+.theme-toggle:active,
+.details-back-button:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bus-live-dot,
+  .live-update-flash {
+    animation: none;
+  }
+
+  button,
+  .bus-card,
+  .search-form button,
+  .secondary-button,
+  .primary-button,
+  .share-button,
+  .stop-button,
+  .capacity-button,
+  .result-tab,
+  .recent-search-chip,
+  .session-button,
+  .share-sheet__option,
+  .share-sheet__close,
+  .theme-toggle,
+  .details-back-button,
+  .toast {
+    transition: none;
+  }
+
+  button:active,
+  .bus-card:active,
+  .search-form button:active,
+  .secondary-button:active,
+  .primary-button:active,
+  .share-button:active,
+  .stop-button:active,
+  .capacity-button:active,
+  .result-tab:active,
+  .recent-search-chip:active,
+  .session-button:active,
+  .share-sheet__option:active,
+  .share-sheet__close:active,
+  .theme-toggle:active,
+  .details-back-button:active {
+    transform: none;
+  }
 }
 
 .report-issue-link:focus-visible {

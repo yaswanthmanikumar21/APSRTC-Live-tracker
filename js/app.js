@@ -235,7 +235,7 @@ function showToast(message, isError = false) {
   window.setTimeout(() => {
     toast.classList.remove('is-visible');
     window.setTimeout(() => toast.remove(), 250);
-  }, 2500);
+  }, 3000);
 }
 
 function returnToHome() {
@@ -558,7 +558,7 @@ function renderBusCards() {
     );
     const liveStatusText = catalogLiveStatusAvailable
       ? isLiveNow
-        ? '🟢 Live now'
+        ? 'Live now'
         : '⚪ No live tracking'
       : 'Live status unavailable';
 
@@ -580,7 +580,13 @@ function renderBusCards() {
 
     const status = document.createElement('span');
     status.className = 'bus-status';
-    status.textContent = liveStatusText;
+    if (isLiveNow) {
+      const dot = document.createElement('span');
+      dot.className = 'bus-live-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      status.appendChild(dot);
+    }
+    status.appendChild(document.createTextNode(liveStatusText));
     status.classList.toggle('bus-status-live', isLiveNow);
     status.classList.toggle(
       'bus-status-unavailable',
@@ -947,6 +953,9 @@ function renderCapacityStatus(status) {
     return;
   }
 
+  const hasStatus = Object.prototype.hasOwnProperty.call(capacityLabels, status);
+  capacityStatus.classList.add('capacity-status-pill');
+  capacityStatus.dataset.capacityStatus = hasStatus ? status : 'unreported';
   capacityStatus.textContent = capacityLabels[status]
     ? `Capacity: ${capacityLabels[status]}`
     : 'Capacity: Not reported yet';
@@ -1058,6 +1067,10 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
     button.dataset.busType = session.bus_type || '';
     const busLabel = document.createElement('span');
     busLabel.className = 'session-bus-label';
+    const liveDot = document.createElement('span');
+    liveDot.className = 'bus-live-dot bus-live-dot--label';
+    liveDot.setAttribute('aria-hidden', 'true');
+    busLabel.appendChild(liveDot);
     busLabel.appendChild(document.createTextNode(
       `Bus ${session.bus_number}${session.bus_code ? `-${session.bus_code}` : ''}`
     ));
@@ -1185,6 +1198,10 @@ function renderNearbyBusSessions(sessionRows) {
     button.dataset.busType = session.bus_type || '';
     const busLabel = document.createElement('span');
     busLabel.className = 'session-bus-label';
+    const liveDot = document.createElement('span');
+    liveDot.className = 'bus-live-dot bus-live-dot--label';
+    liveDot.setAttribute('aria-hidden', 'true');
+    busLabel.appendChild(liveDot);
     busLabel.appendChild(document.createTextNode(
       `Bus ${session.bus_number}-${session.bus_code}`
     ));
@@ -1441,7 +1458,18 @@ function renderBusSearchResults(buses, query, busTypesByNumber = new Map()) {
 
     const busLabel = document.createElement('span');
     busLabel.className = 'session-bus-label';
-    busLabel.textContent = `Bus ${normalizedBus.busNumber}`;
+    const isLiveNow = activeCatalogBusNumbers.has(
+      normalizeBusNumberKey(normalizedBus.busNumber)
+    );
+    if (isLiveNow) {
+      const liveDot = document.createElement('span');
+      liveDot.className = 'bus-live-dot bus-live-dot--label';
+      liveDot.setAttribute('aria-hidden', 'true');
+      busLabel.appendChild(liveDot);
+    }
+    busLabel.appendChild(
+      document.createTextNode(`Bus ${normalizedBus.busNumber}`)
+    );
     const badge = createBusTypeBadge(busType);
     if (badge) {
       busLabel.appendChild(badge);
@@ -2154,7 +2182,11 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
     }).addTo(map);
     liveBusMarker.bindPopup('🚌 Live Bus Location');
   } else {
-    liveBusMarker.setLatLng(currentPosition);
+    if (window.moveBusMarkerSmoothly) {
+      window.moveBusMarkerSmoothly(liveBusMarker, currentPosition);
+    } else {
+      liveBusMarker.setLatLng(currentPosition);
+    }
     liveBusMarker.setIcon(createBusMapIcon(travelBearing));
   }
   previousLiveBusPosition = currentPosition;
@@ -2162,6 +2194,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
 
   if (liveMessage) {
     startBusLocationTicker(liveMessage, liveBusUpdatedAt);
+    window.flashLiveUpdate?.(liveMessage);
   }
 
   if (map && !markerAlreadyExists) {
