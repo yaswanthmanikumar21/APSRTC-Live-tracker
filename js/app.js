@@ -5,6 +5,7 @@ let busSearchResults = [];
 let busSearchQuery = '';
 let activeCatalogBusNumbers = new Set();
 let catalogLiveStatusAvailable = false;
+let shareCelebrationShown = false;
 let toastSequence = 0;
 let detailsReturnView = { type: 'catalog' };
 
@@ -540,6 +541,7 @@ function renderBusCatalogSkeletons() {
 
 function renderBusCards() {
   busList.innerHTML = '';
+  window.UIMotion?.updateLiveCount(activeCatalogBusNumbers.size);
 
   const busesToRender = getActiveBusCatalog();
 
@@ -597,6 +599,10 @@ function renderBusCards() {
 
     busList.appendChild(card);
   });
+  window.UIMotion?.animateCatalogCards(
+    Array.from(busList.querySelectorAll('.bus-card:not(.bus-card-skeleton)'))
+  );
+  window.UIMotion?.updateLiveCount(activeCatalogBusNumbers.size);
 }
 
 async function loadActiveCatalogBusNumbers() {
@@ -608,6 +614,7 @@ async function loadActiveCatalogBusNumbers() {
       console.error('Failed to load catalog live statuses', error);
       activeCatalogBusNumbers = new Set();
       catalogLiveStatusAvailable = false;
+      window.UIMotion?.updateLiveCount(0);
       return;
     }
 
@@ -615,10 +622,12 @@ async function loadActiveCatalogBusNumbers() {
       (Array.isArray(data) ? data : []).map(normalizeBusNumberKey)
     );
     catalogLiveStatusAvailable = true;
+    window.UIMotion?.updateLiveCount(activeCatalogBusNumbers.size);
   } catch (error) {
     console.error('Failed to load catalog live statuses', error);
     activeCatalogBusNumbers = new Set();
     catalogLiveStatusAvailable = false;
+    window.UIMotion?.updateLiveCount(0);
   }
 }
 
@@ -1802,6 +1811,11 @@ async function saveLocationToSupabase(latitude, longitude, busNumber = currentBu
 
   lastSavedCoordinates = coordinateKey;
   lastSavedBusNumber = selectedBusNumber;
+  if (!shareCelebrationShown) {
+    shareCelebrationShown = true;
+    window.UIMotion?.sharingStarted();
+    showToast('Thank you for helping fellow riders!');
+  }
   if (!busTypeUpdateStarted) {
     busTypeUpdateStarted = true;
     window.setShareBusType(
@@ -1915,6 +1929,7 @@ function startLocationSharing(expiresAtOverride = null) {
   }
 
   busTypeUpdateStarted = false;
+  shareCelebrationShown = false;
   isSharingActive = true;
   const selectedDuration = expiresAtOverride
     ? Math.max(0, new Date(expiresAtOverride).getTime() - Date.now())
@@ -2410,10 +2425,11 @@ window.refreshVisibleLiveLists = async function refreshVisibleLiveLists() {
     }
 
     const catalogSection = busList?.closest('.catalog-section');
+    await loadActiveCatalogBusNumbers();
     if (isElementVisible(catalogSection)) {
-      await loadActiveCatalogBusNumbers();
       renderBusCards();
     }
+    window.UIMotion?.updateLiveCount(activeCatalogBusNumbers.size);
 
     if (isElementVisible(activeSessionsContainer)) {
       if (
@@ -2552,6 +2568,7 @@ async function showBusDetails(bus) {
   resultCard.hidden = false;
   mapWrapper.hidden = false;
   activeSessionsContainer.hidden = true;
+  window.UIMotion?.animateDetailsPanel(resultCard);
 
   stopRealtimeSubscription();
   clearLiveBusMarker();

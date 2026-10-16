@@ -635,6 +635,18 @@ p {
   color: var(--muted);
 }
 
+.live-bus-counter {
+  width: fit-content;
+  margin: -12px 0 20px;
+  padding: 5px 11px;
+  border: 1px solid var(--capacity-empty-border);
+  border-radius: 999px;
+  background: var(--capacity-empty-bg);
+  color: var(--capacity-empty-text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .search-form {
   display: flex;
   gap: 12px;
