@@ -1091,7 +1091,7 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
   });
 }
 
-function loadActiveBusSessions(busNumber, routeLabel) {
+function loadActiveBusSessions(busNumber, routeLabel, selectFirst = true) {
   if (!window.busTypeHelpers) {
     renderActiveBusSessions('Live session lookup is unavailable right now.', []);
     return;
@@ -1144,7 +1144,7 @@ function loadActiveBusSessions(busNumber, routeLabel) {
         displayRows
       );
 
-      if (displayRows.length === 1) {
+      if (selectFirst && displayRows.length === 1) {
         selectActiveBusSession(
           busNumber,
           displayRows[0].bus_code,
@@ -2357,6 +2357,113 @@ async function startRealtimeForBus(busNumber, busCode = null) {
     });
   });
 }
+
+function isElementVisible(element) {
+  if (!element || element.hidden) {
+    return false;
+  }
+
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 &&
+    rect.height > 0 &&
+    rect.bottom > 0 &&
+    rect.top < window.innerHeight;
+}
+
+window.refreshVisibleLiveLists = async function refreshVisibleLiveLists() {
+  try {
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+
+    const catalogSection = busList?.closest('.catalog-section');
+    if (isElementVisible(catalogSection)) {
+      await loadActiveCatalogBusNumbers();
+      renderBusCards();
+    }
+
+    if (isElementVisible(activeSessionsContainer)) {
+      if (
+        nearbyBusLatitude !== null &&
+        nearbyBusLongitude !== null &&
+        activeSessionsHeading?.textContent === 'Nearby active buses'
+      ) {
+        await refreshNearbyBusSessions();
+      } else if (currentBusNumber && currentBusRoute) {
+        loadActiveBusSessions(currentBusNumber, currentBusRoute, false);
+      }
+    }
+  } catch (error) {
+    console.warn('Could not refresh visible live bus lists.', error);
+  }
+};
+
+window.handleLiveShareEvent = async function handleLiveShareEvent(row, eventType) {
+  try {
+    const expiresAt = row.expires_at
+      ? new Date(row.expires_at).getTime()
+      : null;
+    const isStopped = eventType === 'DELETE' ||
+      (expiresAt !== null && Number.isFinite(expiresAt) && expiresAt <= Date.now());
+
+    if (isStopped && activeSessionsList) {
+      activeSessionsList.querySelectorAll('.session-button').forEach((button) => {
+        const matches = row.bus_code
+          ? button.dataset.busCode === row.bus_code
+          : button.dataset.busNumber === row.bus_number;
+        if (matches) {
+          button.closest('.session-item')?.remove();
+        }
+      });
+      activeBusSessions = activeBusSessions.filter((session) => (
+        row.bus_code
+          ? session.bus_code !== row.bus_code
+          : session.bus_number !== row.bus_number
+      ));
+      if (!activeSessionsList.children.length && activeSessionsMessage) {
+        activeSessionsMessage.textContent =
+          activeSessionsHeading?.textContent === 'Nearby active buses'
+            ? 'No buses found nearby right now. Try searching by bus number instead, or check back later.'
+            : 'No active buses right now.';
+      }
+    }
+
+    const matchesOpenBus = currentRealtimeBusNumber === row.bus_number &&
+      (!currentRealtimeBusCode || currentRealtimeBusCode === row.bus_code);
+    const liveTab = document.querySelector('[data-result-tab="live"]');
+    if (!matchesOpenBus || resultCard.hidden || liveTab?.getAttribute('aria-selected') !== 'true') {
+      return;
+    }
+
+    const liveMessage = document.getElementById('liveLocationMessage');
+    if (isStopped) {
+      if (liveMessage) {
+        liveMessage.textContent = 'Sharing stopped';
+      }
+      document.getElementById('liveLocationWarning')?.setAttribute('hidden', '');
+      const staleWarning = document.getElementById('liveLocationStaleWarning');
+      if (staleWarning) {
+        staleWarning.hidden = true;
+        staleWarning.textContent = '';
+      }
+      liveMessage?.parentElement?.classList.remove('map-note--warning');
+      clearBusLocationTicker();
+      clearLiveBusMarker();
+      return;
+    }
+
+    if (liveMessage && row.latitude != null && row.longitude != null) {
+      updateCapacityFromRow(row);
+      if (Object.prototype.hasOwnProperty.call(row, 'bus_type')) {
+        setBusTypeBadges(row.bus_type);
+        updateSessionBusTypeBadge(row.bus_number, row.bus_code, row.bus_type);
+      }
+      await updateLiveBusLocationFromRow(row, liveMessage);
+    }
+  } catch (error) {
+    console.warn('Could not apply a live bus update to the open view.', error);
+  }
+};
 
 async function showBusDetails(bus) {
   const normalizedBus = normalizeBusRecord(bus);
