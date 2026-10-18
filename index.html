@@ -109,6 +109,8 @@
             <div id="recentSearchChips" class="recent-search-chips"></div>
           </section>
 
+          <button id="liveBusesNearMeBtn" class="nearby-live-button secondary-button" type="button" data-i18n="liveBusesNearMe">Live buses near me</button>
+
           <section class="live-now-section" aria-labelledby="liveNowHeading">
             <div class="live-now-heading">
               <h2 id="liveNowHeading" data-i18n="liveNow">Live now</h2>
@@ -194,10 +196,6 @@
                 <section class="live-status-panel" aria-labelledby="liveStatusHeading">
                   <h4 id="liveStatusHeading" data-i18n="liveStatus">Live Status</h4>
                   <dl class="live-status-list" aria-live="polite">
-                    <div>
-                      <dt data-i18n="speed">Speed</dt>
-                      <dd id="liveSpeed">Calculating...</dd>
-                    </div>
                     <div>
                       <dt data-i18n="movement">Movement</dt>
                       <dd id="liveDirection" class="movement-indicator" aria-live="polite">
@@ -318,12 +316,25 @@
           <section id="searchResultsContainer" class="active-sessions-container" hidden>
             <h3 data-i18n="searchResults">Search results</h3>
             <p id="searchResultsMessage" class="active-sessions-message"></p>
+            <div class="search-result-filters" role="group" aria-label="Filter search results" data-i18n-aria-label="filterSearchResults">
+              <button class="search-filter-chip is-active" type="button" data-search-filter="all" aria-pressed="true" data-i18n="all">All</button>
+              <button class="search-filter-chip" type="button" data-search-filter="live" aria-pressed="false" data-i18n="liveOnly">Live only</button>
+            </div>
+            <p id="searchResultsEmpty" class="search-results-empty" data-i18n="noLiveForSearch" hidden>No live bus for this search. Try 'Live only' off to see all routes.</p>
             <ul id="searchResultsList" class="active-session-list"></ul>
           </section>
         </div>
       </section>
 
       <div id="mapWrapper" class="map-wrapper" hidden>
+        <button id="followBusBtn" class="follow-bus-button" type="button" data-i18n="followBus" aria-label="Follow bus" data-i18n-aria-label="followBus" aria-pressed="true" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="3"></circle>
+            <circle cx="12" cy="12" r="8"></circle>
+            <path d="M12 1v3m0 16v3M1 12h3m16 0h3"></path>
+          </svg>
+          <span data-i18n="followBus">Follow bus</span>
+        </button>
         <p class="map-note">
           <span id="liveLocationWarning" class="map-note__warning" hidden data-i18n="locationOutdated">
             ⚠️ Location may be outdated

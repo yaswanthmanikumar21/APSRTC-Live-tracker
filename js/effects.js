@@ -26,10 +26,11 @@
     );
   }
 
-  function moveBusMarkerSmoothly(marker, destination) {
+  function moveBusMarkerSmoothly(marker, destination, onComplete = null) {
     try {
       if (!marker || !Array.isArray(destination) || prefersReducedMotion()) {
         marker?.setLatLng(destination);
+        onComplete?.();
         return;
       }
 
@@ -43,6 +44,7 @@
       const start = [origin.lat, origin.lng];
       if (distanceInMeters(start, destination) > 500) {
         marker.setLatLng(destination);
+        onComplete?.();
         return;
       }
 
@@ -63,6 +65,7 @@
           } else {
             marker.setLatLng(destination);
             markerAnimations.delete(marker);
+            onComplete?.();
           }
         } catch (error) {
           console.warn('Could not animate the bus marker; moving it directly.', error);
@@ -80,6 +83,7 @@
       console.warn('Could not animate the bus marker; moving it directly.', error);
       try {
         marker?.setLatLng(destination);
+        onComplete?.();
       } catch (setPositionError) {
         console.warn('Could not move the bus marker to its latest position.', setPositionError);
       }
