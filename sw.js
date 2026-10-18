@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'apsrtc-live-v1';
+const CACHE_VERSION = 'apsrtc-live-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -10,6 +10,8 @@ const APP_SHELL = [
   '/Images/icon-512.png',
   '/js/vendor/gsap.min.js',
   '/js/vendor/confetti.browser.js',
+  '/js/i18n.js',
+  '/js/place-names.js',
   '/js/supabaseClient.js',
   '/js/bus-type.js',
   '/js/native-tracking.js',
