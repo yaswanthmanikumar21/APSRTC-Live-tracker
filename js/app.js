@@ -2,7 +2,11 @@ let busCatalog = [];
 let currentBusSessionCode = null;
 let activeBusSessions = [];
 let busSearchResults = [];
+let searchResultCards = [];
 let busSearchQuery = '';
+let liveOnlySearch = false;
+let nearbySearchResults = false;
+let searchResultTimestampTicker = null;
 let activeCatalogBusNumbers = new Set();
 let activeLiveSessions = [];
 let favoriteBusNumbers = new Set();
@@ -55,9 +59,10 @@ const resultRoute = document.getElementById('resultRoute');
 const resultStart = document.getElementById('resultStart');
 const resultDestination = document.getElementById('resultDestination');
 const resultStatus = document.getElementById('resultStatus');
+const livePanelStatus = document.getElementById('livePanelStatus');
+const livePanelUpdated = document.getElementById('livePanelUpdated');
 const resultSessionCode = document.getElementById('resultSessionCode');
 const resultStops = document.getElementById('resultStops');
-const liveSpeed = document.getElementById('liveSpeed');
 const liveDirection = document.getElementById('liveDirection');
 const liveDirectionArrow = document.getElementById('liveDirectionArrow');
 const liveDirectionDot = document.getElementById('liveDirectionDot');
@@ -71,6 +76,12 @@ const activeSessionsHeading = document.getElementById('activeSessionsHeading');
 const activeSessionsMessage = document.getElementById('activeSessionsMessage');
 const activeSessionsList = document.getElementById('activeSessionsList');
 const mapWrapper = document.getElementById('mapWrapper');
+const followBusBtn = document.getElementById('followBusBtn');
+const panelFollowBtn = document.getElementById('panelFollowBtn');
+const detailsMapBtn = document.getElementById('detailsMapBtn');
+const mapDetailsBtn = document.getElementById('mapDetailsBtn');
+const detailsDragHandle = document.querySelector('.details-drag-handle');
+const liveBusesNearMeBtn = document.getElementById('liveBusesNearMeBtn');
 const shareLocationBtn = document.getElementById('shareLocationBtn');
 const busTypeOptions = document.querySelectorAll('input[name="shareBusType"]');
 const busTypeChoiceHint = document.getElementById('busTypeChoiceHint');
@@ -94,6 +105,16 @@ let liveBusMarker;
 let liveMapMarkers = [];
 let liveMapRefreshInterval = null;
 let liveCatalogRefreshInterval = null;
+let followLiveBus = true;
+let followMapInitializedForBus = false;
+let initialBusFlyInProgress = false;
+let currentLiveBusExpiresAt = null;
+let mapUserGestureAt = 0;
+let programmaticMapMove = false;
+let programmaticMapMoveTimer = null;
+let lastFollowPanAt = 0;
+let panelDragStartY = null;
+let panelDragHandled = false;
 let previousLiveBusPosition = null;
 let liveBusTrail = [];
 let liveBusTrailSegments = [];
@@ -222,6 +243,97 @@ function setResultTab(tabName) {
   }
 }
 
+function isPhoneDetailsLayout() {
+  return window.matchMedia('(max-width: 767px)').matches;
+}
+
+function setDetailsPanelState(state) {
+  if (!resultCard || resultCard.hidden) {
+    return;
+  }
+
+  if (!isPhoneDetailsLayout()) {
+    document.body.classList.toggle('details-panel-hidden', state === 'hidden');
+  } else {
+    document.body.classList.remove('details-panel-hidden');
+    resultCard.dataset.snapState = ['peek', 'half', 'full'].includes(state)
+      ? state
+      : 'peek';
+  }
+  window.requestAnimationFrame(() => {
+    map?.invalidateSize({ pan: false });
+    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+      panMapToLiveBus(true);
+    }
+  });
+}
+
+function openDetailsPanel() {
+  document.body.classList.add('details-panel-open');
+  document.body.classList.remove('details-panel-hidden');
+  setDetailsPanelState('peek');
+  window.requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
+}
+
+function advanceDetailsPanelState(direction = 1) {
+  if (!isPhoneDetailsLayout()) {
+    setDetailsPanelState('peek');
+    return;
+  }
+  const states = ['peek', 'half', 'full'];
+  const currentIndex = Math.max(
+    0,
+    states.indexOf(resultCard.dataset.snapState || 'peek')
+  );
+  const nextIndex = direction > 0
+    ? (currentIndex + 1) % states.length
+    : Math.max(0, currentIndex - 1);
+  setDetailsPanelState(states[nextIndex]);
+}
+
+function getBusMapTarget(position) {
+  if (!map) {
+    return position;
+  }
+  const zoom = map.getZoom();
+  const projected = map.project(position, zoom);
+  const size = map.getSize();
+  let target = projected;
+  let offsetX = 0;
+  let offsetY = 0;
+  if (isPhoneDetailsLayout() && document.body.classList.contains('details-panel-open')) {
+    const state = resultCard.dataset.snapState || 'peek';
+    const sheetHeight = state === 'full'
+      ? window.innerHeight * 0.9
+      : state === 'half'
+        ? window.innerHeight * 0.5
+        : 150;
+    offsetY = sheetHeight / 2;
+  } else if (!isPhoneDetailsLayout() && document.body.classList.contains('details-panel-open')) {
+    const panelWidth = 380;
+    const visibleMapCenterX =
+      (window.innerWidth + panelWidth) / 2 -
+      mapWrapper.getBoundingClientRect().left;
+    offsetX = document.body.classList.contains('details-panel-hidden')
+      ? 0
+      : visibleMapCenterX - size.x / 2;
+  }
+  if (userLocationMarker) {
+    const userPoint = map.project(userLocationMarker.getLatLng(), zoom);
+    const availableHeight = size.y - (offsetY * 2);
+    const fitsBesideBus =
+      Math.abs(userPoint.x - projected.x) <= size.x - 80 &&
+      Math.abs(userPoint.y - projected.y) <= availableHeight - 80;
+    if (fitsBesideBus) {
+      target = projected.add(userPoint).divideBy(2);
+    }
+  }
+  return map.unproject(
+    target.add(L.point(offsetX, offsetY)),
+    zoom
+  );
+}
+
 function setConnectionError(isVisible) {
   if (connectionError) {
     connectionError.hidden = !isVisible;
@@ -262,8 +374,6 @@ function returnToHome() {
     clearInterval(liveMapRefreshInterval);
     liveMapRefreshInterval = null;
   }
-  nearbyBusLatitude = null;
-  nearbyBusLongitude = null;
   stopRealtimeSubscription();
   clearLiveBusMarker();
   clearLiveMapMarkers();
@@ -274,6 +384,10 @@ function returnToHome() {
   searchInput.value = '';
 
   resultCard.hidden = true;
+  document.body.classList.remove(
+    'details-panel-open',
+    'details-panel-hidden'
+  );
   favoriteBusBtn.hidden = true;
   detailsBackBtn.hidden = true;
   mapWrapper.hidden = true;
@@ -311,6 +425,7 @@ function returnToHome() {
     `${url.pathname}${url.search}${url.hash}`
   );
 
+  window.requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -321,6 +436,10 @@ function returnFromBusDetails() {
   clearLiveMapMarkers();
   clearActiveBusSessions();
   resultCard.hidden = true;
+  document.body.classList.remove(
+    'details-panel-open',
+    'details-panel-hidden'
+  );
   detailsBackBtn.hidden = true;
   mapWrapper.hidden = true;
   setPageTitle();
@@ -340,7 +459,16 @@ function returnFromBusDetails() {
   );
 
   if (returnView.type === 'searchResults') {
-    renderBusSearchResults(returnView.buses, returnView.query);
+    nearbySearchResults = Boolean(returnView.nearby);
+    nearbyBusLatitude = returnView.latitude ?? null;
+    nearbyBusLongitude = returnView.longitude ?? null;
+    activeLiveSessions = returnView.sessions || [];
+    renderBusSearchResults(
+      returnView.buses,
+      returnView.query,
+      new Map(),
+      activeLiveSessions
+    );
     searchMessage.textContent =
       t('busesFound', { count: returnView.buses.length });
   } else {
@@ -350,6 +478,7 @@ function returnFromBusDetails() {
   }
 
   setResultTab('details');
+  window.requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -397,6 +526,150 @@ function initMap() {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
   }).addTo(map);
+
+  const mapElement = document.getElementById('map');
+  const markManualMapGesture = () => {
+    mapUserGestureAt = Date.now();
+  };
+  mapElement?.addEventListener('pointerdown', (event) => {
+    if (!event.target.closest('.leaflet-popup, .leaflet-marker-icon')) {
+      markManualMapGesture();
+    }
+  });
+  mapElement?.addEventListener('wheel', markManualMapGesture, {
+    passive: true
+  });
+  mapElement?.addEventListener('keydown', markManualMapGesture);
+  document.querySelectorAll('.leaflet-control-zoom a').forEach((control) => {
+    control.addEventListener('pointerdown', markManualMapGesture);
+  });
+  map.on('dragstart zoomstart', (event) => {
+    if (programmaticMapMove && !event.originalEvent) {
+      return;
+    }
+    if (event.originalEvent || Date.now() - mapUserGestureAt < 1200) {
+      setBusFollowEnabled(false);
+    }
+  });
+  map.on('click', () => {
+    if (
+      isPhoneDetailsLayout() &&
+      document.body.classList.contains('details-panel-open') &&
+      resultCard.dataset.snapState !== 'peek'
+    ) {
+      setDetailsPanelState('peek');
+    }
+  });
+  resultCard.addEventListener('transitionend', (event) => {
+    if (event.propertyName !== 'transform') {
+      return;
+    }
+    map?.invalidateSize({ pan: false });
+    if (
+      followLiveBus &&
+      initialBusFlyInProgress
+    ) {
+      return;
+    }
+    if (
+      followLiveBus &&
+      followMapInitializedForBus &&
+      map?.getZoom() < 16
+    ) {
+      return;
+    }
+    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+      panMapToLiveBus(true);
+    }
+  });
+
+  if (followBusBtn) {
+    followBusBtn.hidden = true;
+    followBusBtn.addEventListener('click', () => {
+      setBusFollowEnabled(true);
+      if (isCurrentBusLive() && liveBusMarker) {
+        panMapToLiveBus(true);
+      }
+    });
+  }
+
+  detailsDragHandle?.addEventListener('click', () => {
+    if (panelDragHandled) {
+      panelDragHandled = false;
+      return;
+    }
+    advanceDetailsPanelState();
+  });
+  detailsDragHandle?.addEventListener('pointerdown', (event) => {
+    panelDragStartY = event.clientY;
+    panelDragHandled = false;
+    detailsDragHandle.setPointerCapture(event.pointerId);
+  });
+  detailsDragHandle?.addEventListener('pointerup', (event) => {
+    if (panelDragStartY === null) {
+      return;
+    }
+    const movement = event.clientY - panelDragStartY;
+    panelDragStartY = null;
+    if (Math.abs(movement) < 24) {
+      return;
+    }
+    panelDragHandled = true;
+    advanceDetailsPanelState(movement < 0 ? 1 : -1);
+  });
+}
+
+function isCurrentBusLive() {
+  return Number.isFinite(currentLiveBusExpiresAt) &&
+    currentLiveBusExpiresAt > Date.now();
+}
+
+function setBusFollowEnabled(enabled) {
+  followLiveBus = Boolean(enabled);
+  if (followBusBtn) {
+    followBusBtn.hidden = followLiveBus || !isCurrentBusLive();
+    followBusBtn.setAttribute('aria-pressed', String(followLiveBus));
+  }
+}
+
+function panMapToLiveBus(force = false) {
+  if (!followLiveBus || !isCurrentBusLive() || !liveBusMarker || !map) {
+    return;
+  }
+  if (initialBusFlyInProgress) {
+    return;
+  }
+
+  const now = Date.now();
+  if (!force && now - lastFollowPanAt < 1000) {
+    return;
+  }
+  lastFollowPanAt = now;
+
+  const reducedMotion = window.matchMedia?.(
+    '(prefers-reduced-motion: reduce)'
+  ).matches;
+  markProgrammaticMapMove();
+  map.panTo(getBusMapTarget(liveBusMarker.getLatLng()), {
+    animate: !reducedMotion,
+    duration: 1
+  });
+}
+
+function markProgrammaticMapMove() {
+  if (programmaticMapMoveTimer) {
+    clearTimeout(programmaticMapMoveTimer);
+  }
+  programmaticMapMove = true;
+  map.once('moveend', () => {
+    programmaticMapMove = false;
+    clearTimeout(programmaticMapMoveTimer);
+    programmaticMapMoveTimer = null;
+  });
+  programmaticMapMoveTimer = window.setTimeout(() => {
+    programmaticMapMove = false;
+    programmaticMapMoveTimer = null;
+  }, 1500);
 }
 
 function setBottomNavActive(view) {
@@ -487,6 +760,10 @@ async function refreshLiveMapMarkers() {
 async function showLiveMapView() {
   moreMenu?.close();
   resultCard.hidden = true;
+  document.body.classList.remove(
+    'details-panel-open',
+    'details-panel-hidden'
+  );
   mapWrapper.hidden = false;
   setPageTitle();
   setBottomNavActive('map');
@@ -1115,7 +1392,7 @@ function renderLiveDirection(isMoving) {
   }
 
   if (liveDirectionDot) {
-    liveDirectionDot.hidden = isMoving;
+    liveDirectionDot.hidden = true;
   }
 
   if (liveDirectionLabel) {
@@ -1161,9 +1438,6 @@ function resetLiveStatus() {
   liveStatusLastMovedAt = null;
   liveStatusBearing = null;
 
-  if (liveSpeed) {
-    liveSpeed.textContent = t('calculating');
-  }
   renderLiveDirection(false);
 
   renderLiveMovementStatus();
@@ -1203,13 +1477,6 @@ function updateLiveStatusFromRow(latitude, longitude, updatedAt) {
     latitude,
     longitude
   );
-  const elapsedHours = elapsedMilliseconds / 3600000;
-
-  if (liveSpeed) {
-    liveSpeed.textContent =
-      `~${(distanceKm / elapsedHours).toFixed(1)} km/h`;
-  }
-
   const movementThresholdKm = 0.001;
   const isMoving = distanceKm >= movementThresholdKm;
   console.log('Live movement distance calculated', {
@@ -1538,14 +1805,7 @@ async function loadNearbyBusSessions(latitude, longitude, selectFirst = true) {
     throw new Error('Supabase helpers are not available.');
   }
 
-  const activeRows = await window.busTypeHelpers.getActiveBusLocationShares();
-  const nearbyRows = activeRows
-    .map((row) => ({
-      ...row,
-      distanceKm: getDistanceKm(latitude, longitude, row.latitude, row.longitude)
-    }))
-    .filter((row) => row.distanceKm != null && row.distanceKm <= 10)
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+  const nearbyRows = await getNearbyLiveBusRows(latitude, longitude);
 
   resultTitle.textContent = t('nearbyTitle');
   setBusTypeBadges(null);
@@ -1568,6 +1828,82 @@ async function loadNearbyBusSessions(latitude, longitude, selectFirst = true) {
       nearbyRows[0].bus_type
     );
   }
+}
+
+async function getNearbyLiveBusRows(latitude, longitude) {
+  if (!window.busTypeHelpers) {
+    throw new Error('Supabase helpers are not available.');
+  }
+  const activeRows = await window.busTypeHelpers.getActiveBusLocationShares();
+  return getUnexpiredLiveSessions(activeRows)
+    .map((row) => ({
+      ...row,
+      distanceKm: getDistanceKm(latitude, longitude, row.latitude, row.longitude)
+    }))
+    .filter((row) => row.distanceKm != null && row.distanceKm <= 10)
+    .sort((first, second) => first.distanceKm - second.distanceKm);
+}
+
+async function searchLiveBusesNearMe() {
+  if (!navigator.geolocation) {
+    showToast(t('locationNotAvailable'), true);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        nearbyBusLatitude = position.coords.latitude;
+        nearbyBusLongitude = position.coords.longitude;
+        const nearbyRows = await getNearbyLiveBusRows(
+          nearbyBusLatitude,
+          nearbyBusLongitude
+        );
+        activeLiveSessions = nearbyRows;
+        nearbySearchResults = true;
+        liveOnlySearch = false;
+        document.querySelectorAll('[data-search-filter]').forEach((button) => {
+          const selected = button.dataset.searchFilter === 'all';
+          button.classList.toggle('is-active', selected);
+          button.setAttribute('aria-pressed', String(selected));
+        });
+        const nearbyNumbers = new Set(
+          nearbyRows.map((row) => normalizeBusNumberKey(row.bus_number))
+        );
+        const nearbyBuses = getActiveBusCatalog().filter((bus) =>
+          nearbyNumbers.has(normalizeBusNumberKey(bus.busNumber))
+        );
+        const types = new Map();
+        nearbyRows.forEach((row) => {
+          types.set(normalizeBusNumberKey(row.bus_number), row.bus_type);
+        });
+        renderBusSearchResults(
+          nearbyBuses,
+          t('liveBusesNearMe'),
+          types,
+          nearbyRows
+        );
+        searchMessage.textContent = '';
+      } catch (error) {
+        console.error('Nearby live-bus search failed.', error);
+        showToast(t('nearbySearchFailed'), true);
+      }
+    },
+    (error) => {
+      console.warn('Could not get the viewer location for nearby buses.', error);
+      showToast(
+        error.code === error.PERMISSION_DENIED
+          ? t('nearbyPermissionDenied')
+          : t('nearbySearchFailed'),
+        true
+      );
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 8000
+    }
+  );
 }
 
 async function refreshNearbyBusSessions() {
@@ -1608,9 +1944,12 @@ function selectActiveBusSession(busNumber, busCode, busType = null) {
     return;
   }
 
+  setBusFollowEnabled(true);
+  followMapInitializedForBus = false;
+  initialBusFlyInProgress = false;
   currentBusSessionCode = busCode;
   setResultTab('live');
-  resultTitle.textContent = `${t('busNumber')} ${busNumber}`;
+  resultTitle.textContent = busNumber;
   setBusTypeBadges(busType);
   resultSessionCode.textContent = busCode || '-';
   resultNumber.textContent = busNumber;
@@ -1711,10 +2050,12 @@ async function loadBusSessionFromUrl() {
     }
   }
 
-function clearActiveBusSessions() {
+function clearActiveBusSessions(resetNearbyLocation = true) {
   clearNearbyBusTimers();
-  nearbyBusLatitude = null;
-  nearbyBusLongitude = null;
+  if (resetNearbyLocation) {
+    nearbyBusLatitude = null;
+    nearbyBusLongitude = null;
+  }
   activeBusSessions = [];
   busSearchResults = [];
   if (activeSessionsList) {
@@ -1727,67 +2068,239 @@ function clearActiveBusSessions() {
 
 function clearBusSearchResults() {
   busSearchResults = [];
+  searchResultCards = [];
+  if (searchResultTimestampTicker) {
+    clearInterval(searchResultTimestampTicker);
+    searchResultTimestampTicker = null;
+  }
+  document.body.classList.remove('search-results-mode');
   if (searchResultsList) {
-    searchResultsList.innerHTML = '';
+    searchResultsList.replaceChildren();
   }
   if (searchResultsContainer) {
     searchResultsContainer.hidden = true;
   }
 }
 
-function renderBusSearchResults(buses, query, busTypesByNumber = new Map()) {
+function renderBusSearchResults(
+  buses,
+  query,
+  busTypesByNumber = new Map(),
+  sessions = activeLiveSessions
+) {
   busSearchResults = Array.isArray(buses) ? buses : [];
   busSearchQuery = query;
+  const liveSessions = getUnexpiredLiveSessions(sessions);
+  searchResultCards = [];
   searchResultsList.replaceChildren();
   searchResultsContainer.hidden = false;
-  searchResultsMessage.textContent = t('searchChoice', { query });
+  searchResultsMessage.textContent = '';
+  document.body.classList.add('search-results-mode');
+  document.querySelectorAll('[data-search-filter]').forEach((button) => {
+    const selected = button.dataset.searchFilter ===
+      (liveOnlySearch ? 'live' : 'all');
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  const knownLatitude = nearbyBusLatitude;
+  const knownLongitude = nearbyBusLongitude;
 
-  busSearchResults.forEach((bus, index) => {
+  busSearchResults.forEach((bus) => {
     const normalizedBus = normalizeBusRecord(bus);
     if (!normalizedBus) {
       return;
     }
 
+    const matchingSessions = liveSessions.filter((session) =>
+      normalizeBusNumberKey(session.bus_number) ===
+      normalizeBusNumberKey(normalizedBus.busNumber)
+    );
+    if (!matchingSessions.length) {
+      searchResultCards.push({
+        bus,
+        normalizedBus,
+        session: null,
+        busType: busTypesByNumber.get(
+          normalizeBusNumberKey(normalizedBus.busNumber)
+        ) || null,
+        distanceKm: null
+      });
+      return;
+    }
+
+    matchingSessions.forEach((session) => {
+      searchResultCards.push({
+        bus,
+        normalizedBus,
+        session,
+        busType: session.bus_type ||
+          busTypesByNumber.get(
+            normalizeBusNumberKey(normalizedBus.busNumber)
+          ) ||
+          null,
+        distanceKm: knownLatitude !== null && knownLongitude !== null
+          ? getDistanceKm(
+              knownLatitude,
+              knownLongitude,
+              Number(session.latitude),
+              Number(session.longitude)
+            )
+          : null
+      });
+    });
+  });
+
+  searchResultCards.sort((first, second) => {
+    if (Boolean(first.session) !== Boolean(second.session)) {
+      return first.session ? -1 : 1;
+    }
+    if (
+      first.session &&
+      second.session &&
+      (first.distanceKm !== null || second.distanceKm !== null)
+    ) {
+      if (first.distanceKm === null) {
+        return 1;
+      }
+      if (second.distanceKm === null) {
+        return -1;
+      }
+      return first.distanceKm - second.distanceKm;
+    }
+    return 0;
+  });
+
+  const visibleCards = searchResultCards.filter((card) =>
+    !liveOnlySearch || Boolean(card.session)
+  );
+  const empty = document.getElementById('searchResultsEmpty');
+  if (empty) {
+    empty.hidden = visibleCards.length > 0;
+    if (visibleCards.length === 0) {
+      empty.textContent = nearbySearchResults
+        ? t('noNearbyLiveBuses')
+        : t('noLiveForSearch');
+    }
+  }
+
+  visibleCards.forEach((entry) => {
+    const { normalizedBus, session, busType, distanceKm } = entry;
     const item = document.createElement('li');
-    item.className = 'session-item';
+    item.className = 'search-result-item';
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'session-button';
-    button.dataset.searchResultIndex = String(index);
+    button.className = 'search-result-card';
+    const cardIndex = searchResultCards.indexOf(entry);
+    button.dataset.searchResultIndex = String(cardIndex);
     button.dataset.busNumber = normalizedBus.busNumber;
-    const busType = busTypesByNumber.get(normalizedBus.busNumber);
+    button.dataset.busCode = session?.bus_code || '';
     button.dataset.busType = busType || '';
 
     const busLabel = document.createElement('span');
-    busLabel.className = 'session-bus-label';
-    busLabel.dataset.busNumber = normalizedBus.busNumber;
-    busLabel.dataset.busCode = '';
-    const isLiveNow = activeCatalogBusNumbers.has(
-      normalizeBusNumberKey(normalizedBus.busNumber)
-    );
-    if (isLiveNow) {
-      const liveDot = document.createElement('span');
-      liveDot.className = 'bus-live-dot bus-live-dot--label';
-      liveDot.setAttribute('aria-hidden', 'true');
-      busLabel.appendChild(liveDot);
-    }
-    busLabel.appendChild(
-      document.createTextNode(`${t('busNumber')} ${normalizedBus.busNumber}`)
-    );
+    busLabel.className = 'search-result-card__title';
+    const number = document.createElement('span');
+    number.className = 'search-result-card__number';
+    number.textContent = normalizedBus.busNumber;
+    busLabel.appendChild(number);
     const badge = createBusTypeBadge(busType);
     if (badge) {
       busLabel.appendChild(badge);
     }
 
     const routeLabel = document.createElement('span');
-    routeLabel.className = 'session-meta';
+    routeLabel.className = 'search-result-card__route';
     routeLabel.textContent =
       window.translateRoute?.(normalizedBus.routeName) || normalizedBus.routeName;
 
-    button.append(busLabel, routeLabel);
+    const status = document.createElement('span');
+    status.className = 'search-result-card__status';
+    if (!session) {
+      status.textContent = t('notLive');
+      status.classList.add('search-result-card__status--offline');
+    } else {
+      const ageMs = Math.max(
+        0,
+        Date.now() - new Date(session.updated_at).getTime()
+      );
+      const dot = document.createElement('span');
+      dot.className = 'search-result-card__dot';
+      dot.setAttribute('aria-hidden', 'true');
+      const statusText = document.createElement('span');
+      if (ageMs >= 60000) {
+        statusText.textContent = t('lastSeenStatus', {
+          time: formatTimeAgo(session.updated_at)
+        });
+        status.classList.add(
+          ageMs > 120000
+            ? 'search-result-card__status--stale-danger'
+            : 'search-result-card__status--stale'
+        );
+      } else {
+        statusText.textContent = t('liveUpdatedStatus', {
+          time: formatTimeAgo(session.updated_at)
+        });
+        status.classList.add('search-result-card__status--live');
+      }
+      status.append(dot, statusText);
+    }
+
+    const meta = document.createElement('span');
+    meta.className = 'search-result-card__meta';
+    if (session) {
+      if (distanceKm !== null && Number.isFinite(distanceKm)) {
+        const distance = document.createElement('span');
+        distance.textContent = t('distanceKmAway', {
+          distance: distanceKm.toFixed(1)
+        });
+        meta.appendChild(distance);
+      }
+    }
+    button.append(busLabel, routeLabel, status, meta);
     item.appendChild(button);
     searchResultsList.appendChild(item);
   });
+
+  if (searchResultTimestampTicker) {
+    clearInterval(searchResultTimestampTicker);
+  }
+  searchResultTimestampTicker = window.setInterval(() => {
+    if (searchResultsContainer.hidden) {
+      clearInterval(searchResultTimestampTicker);
+      searchResultTimestampTicker = null;
+      return;
+    }
+    const types = new Map(
+      searchResultCards.map(({ normalizedBus, busType }) => [
+        normalizeBusNumberKey(normalizedBus.busNumber),
+        busType
+      ])
+    );
+    renderBusSearchResults(
+      busSearchResults,
+      busSearchQuery,
+      types,
+      activeLiveSessions
+    );
+  }, 15000);
+}
+
+async function getLiveSessionsForBuses(buses) {
+  const busNumbers = [...new Set(
+    buses
+      .map((bus) => normalizeBusRecord(bus)?.busNumber)
+      .filter(Boolean)
+  )];
+  const sessionGroups = await Promise.all(
+    busNumbers.map(async (busNumber) => {
+      const { data, error } =
+        await window.busTypeHelpers.getActiveBusSharesForRoute(busNumber);
+      if (error) {
+        throw error;
+      }
+      return Array.isArray(data) ? data : [];
+    })
+  );
+  return getUnexpiredLiveSessions(sessionGroups.flat());
 }
 
 function generateBusSessionCode(busNumber) {
@@ -1882,11 +2395,11 @@ function startBusLocationTicker(liveMessageElement, timestamp) {
     const warningBadge = document.getElementById('liveLocationWarning');
     const staleWarning = document.getElementById('liveLocationStaleWarning');
 
-    updateRelativeTimestampText(
-      liveMessageElement,
-      currentTimestamp,
-      'Live bus location found. Updated '
-    );
+    renderPanelLiveStatus(currentTimestamp);
+    setBusFollowEnabled(followLiveBus);
+    if (liveMessageElement) {
+      liveMessageElement.textContent = '';
+    }
     liveMessageElement.parentElement?.classList.toggle(
       'map-note--warning',
       ageMilliseconds >= 60000 && ageMilliseconds <= 120000
@@ -1915,6 +2428,41 @@ function startBusLocationTicker(liveMessageElement, timestamp) {
 
   tick();
   busLocationTicker = window.setInterval(tick, 1000);
+}
+
+function renderPanelLiveStatus(timestamp = liveBusUpdatedAt) {
+  const parsedTimestamp = timestamp ? new Date(timestamp).getTime() : NaN;
+  const isValid = Number.isFinite(parsedTimestamp);
+  const isExpired = Number.isFinite(currentLiveBusExpiresAt) &&
+    currentLiveBusExpiresAt <= Date.now();
+  const age = isValid ? Math.max(0, Date.now() - parsedTimestamp) : Infinity;
+  const status = !isValid || isExpired
+    ? 'notLive'
+    : age >= 60000
+      ? 'lastSeenStatus'
+      : 'liveNow';
+  const panelStatusText = status === 'lastSeenStatus'
+    ? t(status, { time: formatTimeAgo(timestamp) })
+    : t(status);
+  const summaryStatusText = status === 'liveNow'
+    ? t('liveUpdatedStatus', { time: formatTimeAgo(timestamp) })
+    : panelStatusText;
+  resultStatus.textContent = summaryStatusText;
+  resultStatus.classList.toggle('status-live', status === 'liveNow');
+  resultStatus.classList.toggle('status-stale', status === 'lastSeenStatus');
+  resultStatus.classList.toggle('status-offline', status === 'notLive');
+
+  if (livePanelStatus) {
+    livePanelStatus.textContent = panelStatusText;
+    livePanelStatus.classList.toggle('status-live', status === 'liveNow');
+    livePanelStatus.classList.toggle('status-stale', status === 'lastSeenStatus');
+    livePanelStatus.classList.toggle('status-offline', status === 'notLive');
+  }
+  if (livePanelUpdated) {
+    livePanelUpdated.textContent = isValid && !isExpired
+      ? t('updated', { time: formatTimeAgo(timestamp) })
+      : '';
+  }
 }
 
 function refreshGpsLocation() {
@@ -2329,6 +2877,9 @@ function clearLiveBusMarker() {
     map.removeLayer(liveBusMarker);
   }
   liveBusMarker = null;
+  currentLiveBusExpiresAt = null;
+  setBusFollowEnabled(followLiveBus);
+  renderPanelLiveStatus(null);
   previousLiveBusPosition = null;
   clearLiveBusTrail();
 }
@@ -2468,6 +3019,9 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
 
   lastSeenBusUpdatedAt = incomingUpdatedAt;
   liveBusUpdatedAt = row.updated_at;
+  currentLiveBusExpiresAt = expiresAt;
+  setBusFollowEnabled(followLiveBus);
+  renderPanelLiveStatus(row.updated_at);
 
   const latitude = Number(row.latitude);
   const longitude = Number(row.longitude);
@@ -2491,12 +3045,17 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
     liveBusMarker = L.marker(currentPosition, {
       icon: createBusMapIcon(travelBearing)
     }).addTo(map);
-    liveBusMarker.bindPopup('🚌 Live Bus Location');
+    liveBusMarker.bindPopup(`🚌 ${t('liveBusLocation')}`);
   } else {
     if (window.moveBusMarkerSmoothly) {
-      window.moveBusMarkerSmoothly(liveBusMarker, currentPosition);
+      window.moveBusMarkerSmoothly(
+        liveBusMarker,
+        currentPosition,
+        panMapToLiveBus
+      );
     } else {
       liveBusMarker.setLatLng(currentPosition);
+      panMapToLiveBus();
     }
     liveBusMarker.setIcon(createBusMapIcon(travelBearing));
   }
@@ -2508,11 +3067,34 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
     window.flashLiveUpdate?.(liveMessage);
   }
 
-  if (map && !markerAlreadyExists) {
-    map.setView(currentPosition);
-    map.invalidateSize();
-  } else if (map) {
-    map.panTo(currentPosition, { animate: true });
+  if (map && followLiveBus && !followMapInitializedForBus) {
+    map.invalidateSize({ pan: false });
+    const reducedMotion = window.matchMedia?.(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+    markProgrammaticMapMove();
+    initialBusFlyInProgress = true;
+    map.once('moveend', () => {
+      initialBusFlyInProgress = false;
+      if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+        panMapToLiveBus(true);
+      }
+    });
+    map.flyTo(getBusMapTarget(currentPosition), 16, {
+      animate: !reducedMotion,
+      duration: 1
+    });
+    followMapInitializedForBus = true;
+  } else if (map && !markerAlreadyExists && followLiveBus) {
+    map.invalidateSize({ pan: false });
+    const reducedMotion = window.matchMedia?.(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+    markProgrammaticMapMove();
+    map.panTo(getBusMapTarget(currentPosition), {
+      animate: !reducedMotion,
+      duration: 1
+    });
   }
 }
 
@@ -2521,6 +3103,11 @@ async function startRealtimeForBus(busNumber, busCode = null) {
   activeBusSearch += 1;
   const thisSearchId = activeBusSearch;
   lastSeenBusUpdatedAt = null;
+  currentLiveBusExpiresAt = null;
+  followMapInitializedForBus = false;
+  initialBusFlyInProgress = false;
+  setBusFollowEnabled(followLiveBus);
+  renderPanelLiveStatus(null);
 
   const liveMessage = document.getElementById('liveLocationMessage');
   const liveLocationWarning = document.getElementById('liveLocationWarning');
@@ -2810,7 +3397,7 @@ window.handleLiveShareEvent = async function handleLiveShareEvent(row, eventType
   }
 };
 
-async function showBusDetails(bus) {
+async function showBusDetails(bus, autoSelectSession = true) {
   const normalizedBus = normalizeBusRecord(bus);
 
   if (!normalizedBus) {
@@ -2833,8 +3420,12 @@ async function showBusDetails(bus) {
   clearLiveMapMarkers();
   setBottomNavActive('home');
   setResultTab('details');
+  setBusFollowEnabled(true);
+  followMapInitializedForBus = false;
+  initialBusFlyInProgress = false;
+  currentLiveBusExpiresAt = null;
   resetLiveStatus();
-  resultTitle.textContent = `${t('busNumber')} ${normalizedBus.busNumber}`;
+  resultTitle.textContent = normalizedBus.busNumber;
   setBusTypeBadges(null);
   setPageTitle(normalizedBus.busNumber);
   if (reportIssueLink) {
@@ -2850,7 +3441,7 @@ async function showBusDetails(bus) {
   resultDestination.textContent =
     window.translatePlace?.(normalizedBus.destination) ||
     normalizedBus.destination;
-  resultStatus.textContent = normalizedBus.status;
+  renderPanelLiveStatus(null);
   resultSessionCode.textContent = currentBusSessionCode || '-';
   currentBusNumber = normalizedBus.busNumber;
   currentBusRoute = normalizedBus.routeName;
@@ -2878,18 +3469,21 @@ async function showBusDetails(bus) {
   resultCard.hidden = false;
   mapWrapper.hidden = false;
   activeSessionsContainer.hidden = true;
-  window.UIMotion?.animateDetailsPanel(resultCard);
-
+  openDetailsPanel();
   stopRealtimeSubscription();
   clearLiveBusMarker();
   clearActiveBusSessions();
 
   if (map) {
     map.setView(defaultMapCenter, 13);
-    setTimeout(() => map.invalidateSize(), 100);
+    window.setTimeout(() => map.invalidateSize({ pan: false }), 100);
   }
 
-  await loadActiveBusSessions(normalizedBus.busNumber, normalizedBus.routeName);
+  await loadActiveBusSessions(
+    normalizedBus.busNumber,
+    normalizedBus.routeName,
+    autoSelectSession
+  );
   window.requestAnimationFrame(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -2897,6 +3491,14 @@ async function showBusDetails(bus) {
 
 searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  liveOnlySearch = false;
+  nearbySearchResults = false;
+  document.querySelectorAll('[data-search-filter]').forEach((button) => {
+    const selected = button.dataset.searchFilter === 'all';
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  clearBusSearchResults();
   if (liveMapRefreshInterval) {
     clearInterval(liveMapRefreshInterval);
     liveMapRefreshInterval = null;
@@ -2905,8 +3507,6 @@ searchForm.addEventListener('submit', async (event) => {
   setBottomNavActive('home');
   detailsReturnView = { type: 'catalog' };
   clearNearbyBusTimers();
-  nearbyBusLatitude = null;
-  nearbyBusLongitude = null;
 
   const input = document.getElementById('busNumber');
   const query = input.value.trim();
@@ -2954,44 +3554,37 @@ searchForm.addEventListener('submit', async (event) => {
       return;
     }
 
-    if (matchingBuses.length > 1) {
-      setPageTitle();
-      stopRealtimeSubscription();
-      clearLiveBusMarker();
-      clearActiveBusSessions();
-      resultCard.hidden = true;
-      mapWrapper.hidden = true;
-      let busTypesByNumber = new Map();
-      try {
-        busTypesByNumber = await window.busTypeHelpers
-          .getActiveBusTypesForNumbers(
-            matchingBuses.map((bus) => normalizeBusRecord(bus)?.busNumber)
-          );
-      } catch (error) {
-        console.warn('Could not load bus types for search results.', error);
+    setPageTitle();
+    stopRealtimeSubscription();
+    clearLiveBusMarker();
+    clearActiveBusSessions(false);
+    resultCard.hidden = true;
+    mapWrapper.hidden = true;
+    activeSessionsContainer.hidden = true;
+    setBusFollowEnabled(true);
+    let liveSessions = [];
+    try {
+      liveSessions = await getLiveSessionsForBuses(matchingBuses);
+    } catch (error) {
+      console.error('Could not load live sessions for search results.', error);
+      liveSessions = getUnexpiredLiveSessions(activeLiveSessions);
+    }
+    activeLiveSessions = liveSessions;
+    const busTypesByNumber = new Map();
+    liveSessions.forEach((session) => {
+      const key = normalizeBusNumberKey(session.bus_number);
+      if (!busTypesByNumber.has(key) && session.bus_type) {
+        busTypesByNumber.set(key, session.bus_type);
       }
-      renderBusSearchResults(matchingBuses, query, busTypesByNumber);
-      searchMessage.textContent = t('busesFound', { count: matchingBuses.length });
-      return;
-    }
-
-    const foundBus = normalizeBusRecord(matchingBuses[0]);
-
-    if (!foundBus || !foundBus.busNumber) {
-      setPageTitle();
-      clearBusSearchResults();
-      stopRealtimeSubscription();
-      clearLiveBusMarker();
-      resultCard.hidden = true;
-      mapWrapper.hidden = true;
-      activeSessionsContainer.hidden = true;
-      searchMessage.textContent = t('busNotFound');
-      return;
-    }
-
-    await showBusDetails(foundBus);
+    });
+    renderBusSearchResults(
+      matchingBuses,
+      query,
+      busTypesByNumber,
+      liveSessions
+    );
     setConnectionError(false);
-    searchMessage.textContent = t('showBusDetails', { number: foundBus.busNumber });
+    searchMessage.textContent = '';
   } catch (error) {
     console.error('Bus search failed', error);
     setPageTitle();
@@ -3084,17 +3677,32 @@ searchResultsList.addEventListener('click', (event) => {
   const searchResultButton = event.target.closest('[data-search-result-index]');
   if (searchResultButton) {
     const index = Number(searchResultButton.dataset.searchResultIndex);
-    const selectedBus = normalizeBusRecord(busSearchResults[index]);
-    if (selectedBus) {
+    const result = searchResultCards[index];
+    const selectedBus = normalizeBusRecord(result?.bus);
+    if (selectedBus && result) {
       detailsReturnView = {
         type: 'searchResults',
         buses: [...busSearchResults],
-        query: busSearchQuery
+        query: busSearchQuery,
+        sessions: [...activeLiveSessions],
+        nearby: nearbySearchResults,
+        latitude: nearbyBusLatitude,
+        longitude: nearbyBusLongitude
       };
-      showBusDetails(selectedBus)
+      showBusDetails(selectedBus, false)
         .then(() => {
-          if (searchResultButton.dataset.busType) {
-            setBusTypeBadges(searchResultButton.dataset.busType);
+          if (result.busType) {
+            setBusTypeBadges(result.busType);
+          }
+          if (result.session) {
+            selectActiveBusSession(
+              selectedBus.busNumber,
+              result.session.bus_code,
+              result.busType
+            );
+          } else {
+            document.getElementById('liveLocationMessage').textContent =
+              t('noLiveLocation');
           }
           setConnectionError(false);
           searchMessage.textContent = t('selectedBusDetails', {
@@ -3107,6 +3715,29 @@ searchResultsList.addEventListener('click', (event) => {
         });
     }
   }
+});
+
+document.querySelectorAll('[data-search-filter]').forEach((filterButton) => {
+  filterButton.addEventListener('click', () => {
+    liveOnlySearch = filterButton.dataset.searchFilter === 'live';
+    document.querySelectorAll('[data-search-filter]').forEach((button) => {
+      const selected = button === filterButton;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    const types = new Map(
+      searchResultCards.map(({ normalizedBus, busType }) => [
+        normalizeBusNumberKey(normalizedBus.busNumber),
+        busType
+      ])
+    );
+    renderBusSearchResults(
+      busSearchResults,
+      busSearchQuery,
+      types,
+      activeLiveSessions
+    );
+  });
 });
 
 activeSessionsList.addEventListener('click', (event) => {
@@ -3179,40 +3810,8 @@ capacityButtons.forEach((button) => {
   });
 });
 
-findNearbyBtn.addEventListener('click', () => {
-  if (!navigator.geolocation) {
-    searchMessage.textContent = t('locationNotAvailable');
-    return;
-  }
-
-  searchMessage.textContent = t('lookingNearby');
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      try {
-        nearbyBusLatitude = position.coords.latitude;
-        nearbyBusLongitude = position.coords.longitude;
-        await loadNearbyBusSessions(
-          nearbyBusLatitude,
-          nearbyBusLongitude
-        );
-        startNearbyBusRefresh();
-        searchMessage.textContent = t('nearbyLoaded');
-      } catch (error) {
-        console.error('Nearby search failed', error);
-        searchMessage.textContent = t('nearbyFailed');
-      }
-    },
-    (error) => {
-      console.error('Geolocation failed', error);
-      searchMessage.textContent = t('viewerLocationFailed');
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 8000
-    }
-  );
-});
+findNearbyBtn.addEventListener('click', searchLiveBusesNearMe);
+liveBusesNearMeBtn?.addEventListener('click', searchLiveBusesNearMe);
 
 toggleAddBusBtn.addEventListener('click', () => {
   if (!addBusSection) {
@@ -3419,6 +4018,38 @@ bottomHomeBtn?.addEventListener('click', returnToHome);
 bottomLiveMapBtn?.addEventListener('click', showLiveMapView);
 detailsBackBtn.addEventListener('click', returnFromBusDetails);
 document.getElementById('detailsCloseBtn')?.addEventListener('click', returnToHome);
+detailsMapBtn?.addEventListener('click', () => {
+  setDetailsPanelState(isPhoneDetailsLayout() ? 'peek' : 'hidden');
+});
+mapDetailsBtn?.addEventListener('click', () => {
+  if (resultCard.hidden) {
+    return;
+  }
+  openDetailsPanel();
+});
+panelFollowBtn?.addEventListener('click', () => {
+  setBusFollowEnabled(true);
+  if (isCurrentBusLive() && liveBusMarker) {
+    panMapToLiveBus(true);
+  }
+});
+window.addEventListener('resize', () => {
+  if (resultCard.hidden) {
+    return;
+  }
+  if (isPhoneDetailsLayout()) {
+    document.body.classList.remove('details-panel-hidden');
+    if (!resultCard.dataset.snapState) {
+      resultCard.dataset.snapState = 'peek';
+    }
+  }
+  window.requestAnimationFrame(() => {
+    map?.invalidateSize({ pan: false });
+    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+      panMapToLiveBus(true);
+    }
+  });
+});
 moreMenuBtn?.addEventListener('click', () => {
   setBottomNavActive('more');
   moreMenu?.showModal();
@@ -3560,7 +4191,8 @@ window.addEventListener('languagechange', () => {
       refreshLiveMapMarkers();
     }
     if (!resultCard.hidden && currentBusNumber) {
-      resultTitle.textContent = `${t('busNumber')} ${currentBusNumber}`;
+      resultTitle.textContent = currentBusNumber;
+      setBusTypeBadges(currentBusType);
       const currentBus = currentDisplayedBusRecord;
       if (currentBus) {
         resultRoute.textContent =
@@ -3618,7 +4250,21 @@ window.addEventListener('languagechange', () => {
         updated.textContent = t('updated', { time: formatTimeAgo(timestamp) });
       });
     if (!searchResultsContainer.hidden) {
-      searchResultsMessage.textContent = t('searchChoice', { query: busSearchQuery });
+      const resultTypes = new Map(
+        searchResultCards.map(({ normalizedBus, busType }) => [
+          normalizeBusNumberKey(normalizedBus.busNumber),
+          busType
+        ])
+      );
+      renderBusSearchResults(
+        busSearchResults,
+        busSearchQuery,
+        resultTypes,
+        activeLiveSessions
+      );
+      searchResultsMessage.textContent = t('searchChoice', {
+        query: busSearchQuery
+      });
     }
     document.querySelectorAll('.bus-type-badge').forEach((badge) => {
       badge.textContent = badge.dataset.busType === 'ordinary'
@@ -3636,11 +4282,9 @@ window.addEventListener('languagechange', () => {
       locationStatusText.textContent = t('sharingActive');
     }
 
-    if (!previousLiveStatusReading) {
-      liveSpeed.textContent = t('calculating');
-    }
     renderLiveDirection(liveDirection.classList.contains('is-moving'));
     renderLiveMovementStatus();
+    renderPanelLiveStatus();
     const capacityKey = capacityStatus.dataset.capacityStatus;
     renderCapacityStatus(capacityKey && capacityKey !== 'unreported' ? capacityKey : null);
     if (liveBusUpdatedAt) {

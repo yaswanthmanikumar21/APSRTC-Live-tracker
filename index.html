@@ -109,6 +109,8 @@
             <div id="recentSearchChips" class="recent-search-chips"></div>
           </section>
 
+          <button id="liveBusesNearMeBtn" class="nearby-live-button secondary-button" type="button" data-i18n="liveBusesNearMe">Live buses near me</button>
+
           <section class="live-now-section" aria-labelledby="liveNowHeading">
             <div class="live-now-heading">
               <h2 id="liveNowHeading" data-i18n="liveNow">Live now</h2>
@@ -118,7 +120,9 @@
           </section>
 
           <div id="resultCard" class="result-card" hidden>
-            <div class="details-drag-handle" aria-hidden="true"><span></span></div>
+            <button class="details-drag-handle" type="button" aria-label="Change details panel size" data-i18n-aria-label="changePanelSize">
+              <span aria-hidden="true"></span>
+            </button>
             <div class="result-header">
               <div class="result-title-group">
                 <button id="detailsBackBtn" class="details-back-button" type="button" hidden>
@@ -131,6 +135,13 @@
                 <button id="favoriteBusBtn" class="favorite-toggle favorite-toggle--details" type="button" aria-label="Add bus to favorites" data-i18n-aria-label="addFavorite" aria-pressed="false" hidden>☆</button>
               </div>
               <div class="share-link-control">
+                <button id="detailsMapBtn" class="panel-map-button" type="button" aria-label="Map" data-i18n-aria-label="map">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M3 6.5 8.5 4l7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20V6.5Z"></path>
+                    <path d="M8.5 4v13.5m7-11V20"></path>
+                  </svg>
+                  <span data-i18n="map">Map</span>
+                </button>
                 <button id="copyBusLinkBtn" type="button" class="secondary-button">
                   <span data-i18n="share">🔗 Share</span>
                 </button>
@@ -146,10 +157,11 @@
                 </div>
               </dl>
               <div class="result-summary-status">
-                <span class="summary-status-label" data-i18n="trackingStatus">Tracking status</span>
+                <span class="summary-status-label" data-i18n="liveStatus">Live Status</span>
                 <span id="resultStatus">-</span>
               </div>
               <span id="liveLocationMessage" class="result-live-message"></span>
+              <button id="panelFollowBtn" class="panel-follow-button secondary-button" type="button" data-i18n="followBus">Follow bus</button>
             </div>
 
             <div id="activeSessionsContainer" class="active-sessions-container" hidden>
@@ -188,44 +200,87 @@
                     <dd id="resultSessionCode">-</dd>
                   </div>
                 </dl>
+                <details class="share-location-disclosure">
+                  <summary data-i18n="onThisBus">I’m on this bus</summary>
+                  <h4 data-i18n="shareLocationSection">Share my location</h4>
+                  <div class="share-section">
+                    <fieldset class="bus-type-choice" aria-describedby="busTypeChoiceHint">
+                      <legend data-i18n="chooseBusType">Choose the bus type before sharing</legend>
+                      <div class="bus-type-choice__options">
+                        <label class="bus-type-choice__option">
+                          <input type="radio" name="shareBusType" value="ordinary" required />
+                          <span data-i18n="ordinary">Ordinary</span>
+                        </label>
+                        <label class="bus-type-choice__option">
+                          <input type="radio" name="shareBusType" value="metro_express" />
+                          <span data-i18n="metroExpress">Metro Express</span>
+                        </label>
+                      </div>
+                      <p id="busTypeChoiceHint" class="bus-type-choice__hint" role="status" data-i18n="chooseRidingType">Choose the type you are riding.</p>
+                    </fieldset>
+                    <button id="shareLocationBtn" class="share-button" type="button" data-i18n="startSharingLocation">
+                      Start sharing location
+                    </button>
+                    <div class="share-controls">
+                      <label class="share-label" for="timerSelect" data-i18n="sharingTime">Sharing time</label>
+                      <select id="timerSelect" class="share-select">
+                        <option value="900000" data-i18n="fifteenMinutes">15 minutes</option>
+                        <option value="1800000" data-i18n="thirtyMinutes">30 minutes</option>
+                        <option value="3600000" data-i18n="oneHour">1 hour</option>
+                        <option value="0" data-i18n="untilIStop">Until I stop</option>
+                        <option value="custom" data-i18n="custom">Custom</option>
+                      </select>
+                      <label class="sr-only" for="customDurationMinutes" data-i18n="customMinutes">Custom sharing duration in minutes</label>
+                      <input
+                        id="customDurationMinutes"
+                        class="custom-duration-input"
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputmode="numeric"
+                        placeholder="Minutes"
+                        data-i18n-placeholder="minutes"
+                        aria-label="Custom sharing duration in minutes"
+                        data-i18n-aria-label="customMinutes"
+                        hidden
+                      />
+                    </div>
+                    <p class="gps-note" data-i18n="gpsNote">GPS updates depend on your device and may take 15-60 seconds between updates.</p>
+                    <button id="stopSharingBtn" class="stop-button" type="button" hidden>
+                      <span data-i18n="stopSharing">Stop Sharing</span>
+                    </button>
+                  </div>
+                </details>
               </section>
 
               <section id="livePanel" class="tab-panel" role="tabpanel" aria-labelledby="liveTab" data-result-panel="live" hidden>
                 <section class="live-status-panel" aria-labelledby="liveStatusHeading">
-                  <h4 id="liveStatusHeading" data-i18n="liveStatus">Live Status</h4>
-                  <dl class="live-status-list" aria-live="polite">
-                    <div>
-                      <dt data-i18n="speed">Speed</dt>
-                      <dd id="liveSpeed">Calculating...</dd>
-                    </div>
-                    <div>
-                      <dt data-i18n="movement">Movement</dt>
-                      <dd id="liveDirection" class="movement-indicator" aria-live="polite">
-                        <svg
-                          id="liveDirectionArrow"
-                          class="movement-indicator__icon"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          hidden
-                        >
-                          <path d="M12 2 4.5 20.5 12 17l7.5 3.5L12 2Z"></path>
-                        </svg>
-                        <svg
-                          id="liveDirectionDot"
-                          class="movement-indicator__icon movement-indicator__dot"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <circle cx="12" cy="12" r="6"></circle>
-                        </svg>
-                        <span id="liveDirectionLabel">Waiting for movement data.</span>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt data-i18n="lastMovement">Last movement</dt>
-                      <dd id="liveMovement">Waiting for movement data.</dd>
-                    </div>
-                  </dl>
+                  <h4 id="liveStatusHeading" class="sr-only" data-i18n="liveStatus">Live Status</h4>
+                  <div class="live-panel-status" aria-live="polite">
+                    <span id="livePanelStatus" class="live-panel-status__label">-</span>
+                    <span id="livePanelUpdated" class="live-panel-status__updated"></span>
+                    <span id="liveDirection" class="movement-indicator" aria-label="Bus direction" data-i18n-aria-label="busDirection">
+                      <svg
+                        id="liveDirectionArrow"
+                        class="movement-indicator__icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        hidden
+                      >
+                        <path d="M12 2 4.5 20.5 12 17l7.5 3.5L12 2Z"></path>
+                      </svg>
+                      <svg
+                        id="liveDirectionDot"
+                        class="movement-indicator__icon movement-indicator__dot"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        hidden
+                      >
+                        <circle cx="12" cy="12" r="6"></circle>
+                      </svg>
+                      <span id="liveDirectionLabel" class="sr-only"></span>
+                    </span>
+                  </div>
                 </section>
               </section>
 
@@ -240,57 +295,6 @@
                   <p id="capacityMessage" class="capacity-message" aria-live="polite"></p>
                 </div>
               </section>
-            </div>
-
-            <div class="share-section">
-              <fieldset class="bus-type-choice" aria-describedby="busTypeChoiceHint">
-                <legend data-i18n="chooseBusType">Choose the bus type before sharing</legend>
-                <div class="bus-type-choice__options">
-                  <label class="bus-type-choice__option">
-                    <input type="radio" name="shareBusType" value="ordinary" required />
-                    <span data-i18n="ordinary">Ordinary</span>
-                  </label>
-                  <label class="bus-type-choice__option">
-                    <input type="radio" name="shareBusType" value="metro_express" />
-                    <span data-i18n="metroExpress">Metro Express</span>
-                  </label>
-                </div>
-                <p id="busTypeChoiceHint" class="bus-type-choice__hint" role="status" data-i18n="chooseRidingType">Choose the type you are riding.</p>
-              </fieldset>
-              <button id="shareLocationBtn" class="share-button" type="button">
-                <span data-i18n="onThisBus">📍 I’m on this bus</span>
-              </button>
-
-              <div class="share-controls">
-                <label class="share-label" for="timerSelect" data-i18n="sharingTime">Sharing time</label>
-                <select id="timerSelect" class="share-select">
-                  <option value="900000" data-i18n="fifteenMinutes">15 minutes</option>
-                  <option value="1800000" data-i18n="thirtyMinutes">30 minutes</option>
-                  <option value="3600000" data-i18n="oneHour">1 hour</option>
-                  <option value="0" data-i18n="untilIStop">Until I stop</option>
-                  <option value="custom" data-i18n="custom">Custom</option>
-                </select>
-                <label class="sr-only" for="customDurationMinutes" data-i18n="customMinutes">Custom sharing duration in minutes</label>
-                <input
-                  id="customDurationMinutes"
-                  class="custom-duration-input"
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputmode="numeric"
-                  placeholder="Minutes"
-                  data-i18n-placeholder="minutes"
-                  aria-label="Custom sharing duration in minutes"
-                  data-i18n-aria-label="customMinutes"
-                  hidden
-                />
-              </div>
-
-              <p class="gps-note" data-i18n="gpsNote">GPS updates depend on your device and may take 15-60 seconds between updates.</p>
-
-              <button id="stopSharingBtn" class="stop-button" type="button" hidden>
-                <span data-i18n="stopSharing">Stop Sharing</span>
-              </button>
             </div>
 
             <div id="locationPanel" class="location-panel" hidden>
@@ -318,12 +322,29 @@
           <section id="searchResultsContainer" class="active-sessions-container" hidden>
             <h3 data-i18n="searchResults">Search results</h3>
             <p id="searchResultsMessage" class="active-sessions-message"></p>
+            <div class="search-result-filters" role="group" aria-label="Filter search results" data-i18n-aria-label="filterSearchResults">
+              <button class="search-filter-chip is-active" type="button" data-search-filter="all" aria-pressed="true" data-i18n="all">All</button>
+              <button class="search-filter-chip" type="button" data-search-filter="live" aria-pressed="false" data-i18n="liveOnly">Live only</button>
+            </div>
+            <p id="searchResultsEmpty" class="search-results-empty" data-i18n="noLiveForSearch" hidden>No live bus for this search. Try 'Live only' off to see all routes.</p>
             <ul id="searchResultsList" class="active-session-list"></ul>
           </section>
         </div>
       </section>
 
       <div id="mapWrapper" class="map-wrapper" hidden>
+        <button id="mapDetailsBtn" class="map-details-button secondary-button" type="button" data-i18n="showDetails">
+          <span aria-hidden="true">▤</span>
+          <span data-i18n="detailsTab">Details</span>
+        </button>
+        <button id="followBusBtn" class="follow-bus-button" type="button" data-i18n="followBus" aria-label="Follow bus" data-i18n-aria-label="followBus" aria-pressed="true" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="3"></circle>
+            <circle cx="12" cy="12" r="8"></circle>
+            <path d="M12 1v3m0 16v3M1 12h3m16 0h3"></path>
+          </svg>
+          <span data-i18n="followBus">Follow bus</span>
+        </button>
         <p class="map-note">
           <span id="liveLocationWarning" class="map-note__warning" hidden data-i18n="locationOutdated">
             ⚠️ Location may be outdated
