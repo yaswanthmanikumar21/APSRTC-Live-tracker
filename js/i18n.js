@@ -191,7 +191,7 @@
       shareConfirmationAsk: 'Would you like to start sharing?',
       capacitySaving: 'Saving capacity...',
       capacityUpdated: 'Capacity updated.',
-      capacityUpdateFailed: 'Could not update capacity: {error}',
+      capacityUpdateFailed: 'Could not update capacity. Please try again.',
       locationNotAvailable: 'Location is not available in this browser.',
       locationUnsupported: 'Location sharing is not supported by this browser.',
       lookingNearby: 'Looking for nearby buses...',
@@ -203,7 +203,7 @@
       requiredBusFields: 'Bus number, route, starting point, and destination are required.',
       addingBus: 'Adding bus...',
       busAdded: 'Bus {number} added successfully.',
-      couldNotAddBus: 'Could not add bus.',
+      couldNotAddBus: 'Could not add the bus. Please try again.',
       savedSessionTitle: 'Continue sharing?',
       savedSessionPrompt: 'You were sharing Bus {number}. Do you want to continue?',
       resumeSharing: 'Resume sharing',
@@ -219,7 +219,71 @@
       couldNotLoadSharedLink: 'The shared bus link could not be loaded.',
       sharedSessionNotFound: 'The shared bus session could not be found.',
       sharedSessionShown: 'Showing shared bus session {code}.',
-      connectionProblem: 'Could not load that bus right now.'
+      connectionProblem: 'Could not load that bus right now.',
+      notAvailable: 'Not available',
+      justNow: 'just now',
+      secondsAgo: '{count} seconds ago',
+      secondAgo: '{count} second ago',
+      minutesAgo: '{count} minutes ago',
+      minuteAgo: '{count} minute ago',
+      hoursAgo: '{count} hours ago',
+      hourAgo: '{count} hour ago',
+      daysAgo: '{count} days ago',
+      dayAgo: '{count} day ago',
+      myLocation: 'My Location',
+      liveBusLocation: '🚌 Live Bus Location',
+      shareSaveFailed: 'Location sharing is active, but the latest position could not be saved.',
+      nativeTrackingError: 'Native tracking encountered an error.',
+      nativeLocationPermission: 'Allow location access “All the time” in app settings to share while the screen is locked.',
+      catalogCardAria: 'Search bus {number}. {status}.',
+      recentBusAria: 'Search bus {number}.',
+      active: 'Active',
+      inactive: 'Inactive',
+      changeLanguage: 'Change language: English',
+      privacyLink: 'Privacy and how it works',
+      privacyTitle: 'Privacy and how it works | APSRTC Live',
+      privacyHeading: 'Privacy and how it works',
+      privacyIntro: 'APSRTC Live is a free, crowdsourced bus tracker. Information comes from riders and is not official APSRTC information.',
+      privacyHowTitle: 'How it works',
+      privacyHowText: 'A rider can choose to share their bus’s location while they are on the bus. Other people can then see the shared location on the map.',
+      privacyCollectedTitle: 'Information used while sharing',
+      privacyCollectedText: 'Only when someone shares, we collect the bus number, a session code, the bus type, latitude and longitude, and the time of the latest location update. Riders can also submit a capacity report: empty, half-full, or full.',
+      privacySessionText: 'Location sharing starts only after the rider taps to start, and continues only while sharing is on. Each session stores the latest position, replacing it with each update. The last position from a finished session may remain stored until old records are cleared.',
+      privacyNotCollectedTitle: 'Information we do not collect',
+      privacyNotCollectedText: 'We do not collect your name, email address, phone number, or account details. There are no ads.',
+      privacyStorageTitle: 'Storage and use',
+      privacyStorageText: 'Shared data is stored with Supabase. We do not sell it or share it for advertising.',
+      privacyDeviceText: 'Your device stores your theme, language, recent searches, last selected bus type, and active sharing session in localStorage.',
+      privacyAccuracyTitle: 'Accuracy and safety',
+      privacyAccuracyText: 'Location accuracy is not guaranteed. Do not rely on APSRTC Live for urgent travel or safety decisions.',
+      privacyTeluguSummaryTitle: 'Summary',
+      privacyTeluguSummaryText: 'APSRTC Live is a free bus tracker with location shared by riders. Bus details and location are stored only when a rider starts sharing. We do not collect names, phone numbers, email addresses, or account details. Location accuracy is not guaranteed; do not rely on it for urgent travel.',
+      privacyContactTitle: 'Contact',
+      privacyContactText: 'Questions or feedback?',
+      privacyLastUpdated: 'Last updated:',
+      privacyBack: 'Back to APSRTC Live',
+      busPageTitle: 'Bus {number} - APSRTC Live',
+      issueSubject: 'APSRTC Live issue',
+      issueWithBus: 'Issue with Bus {number}',
+      siteDescription: 'APSRTC Live is a free, crowdsourced bus tracker for Visakhapatnam with rider-submitted real-time GPS locations.',
+      gpsStatusWaiting: 'waiting',
+      gpsStopped: 'stopped',
+      gpsCallbackReceived: 'callback received',
+      gpsWatcherStarted: 'GPS watcher started',
+      gpsLocationError: 'geolocation error',
+      unknownStatus: 'unknown',
+      none: 'none',
+      waiting: 'waiting',
+      waitingForCallback: 'waiting for callback',
+      debugTimestamp: '{value}',
+      gpsWatcherLabel: 'GPS watcher: {status}',
+      lastCallbackLabel: 'Last callback: {time}',
+      latestCoordinates: 'Latest lat/lng: {latitude}, {longitude}',
+      errorLabel: 'Error: {error}',
+      gpsWaitingMessage: 'GPS debug: waiting to start.',
+      nativeSourceRegisterPlugin: 'Native tracking: using registerPlugin',
+      nativeSourceCapacitorPlugins: 'Native tracking: using Capacitor.Plugins',
+      nativePluginMissing: 'Native tracking: plugin not found, using browser GPS',
     },
     te: {
       sharingDisclaimerTitle: 'స్థానాన్ని పంచుకోవడం గురించి చిన్న గమనిక',
@@ -255,10 +319,10 @@
       recent: 'ఇటీవల:',
       recentSearches: 'ఇటీవల వెతికిన బస్సులు',
       sampleBusNumber: '28',
-      sampleRoute: 'RK Beach - Simhachalam',
-      sampleStartingPoint: 'RK Beach',
-      sampleDestination: 'Simhachalam',
-      sampleStops: 'RK Beach, Waltair, Siripuram',
+      sampleRoute: 'ఆర్‌కే బీచ్ - సింహాచలం',
+      sampleStartingPoint: 'ఆర్‌కే బీచ్',
+      sampleDestination: 'సింహాచలం',
+      sampleStops: 'ఆర్‌కే బీచ్, వాల్తేరు, సిరిపురం',
       addBusHeading: 'కొత్త బస్సు జోడించండి',
       busNumberRequired: 'బస్సు నంబర్ *',
       routeRequired: 'రూట్ *',
@@ -352,7 +416,7 @@
       contactText: 'సమస్యను తెలియజేయడానికి లేదా అభిప్రాయం పంపడానికి:',
       footerCredits: 'షేర్ షీట్ VengeanceUI స్ఫూర్తితో రూపొందించబడింది. QR: qrcode-generator (MIT).',
       installApp: 'యాప్ ఇన్‌స్టాల్',
-      iosInstallHint: 'Share నొక్కి, Add to Home Screen ఎంచుకోండి',
+      iosInstallHint: 'షేర్ నొక్కి, హోమ్ స్క్రీన్‌కు జోడించండి',
       dismiss: 'దాచండి',
       dismissInstallHint: 'ఇన్‌స్టాల్ సూచనను దాచండి',
       noLiveTracking: '⚪ లైవ్ ట్రాకింగ్ లేదు',
@@ -404,14 +468,14 @@
       selectBusFirst: 'ముందుగా ఒక బస్సును ఎంచుకోండి.',
       selectActiveSessionCapacity: 'రద్దీ తెలియజేయడానికి ముందుగా లైవ్ సెషన్ ఉన్న బస్సును ఎంచుకోండి.',
       selectedRoute: 'ఎంచుకున్న రూట్',
-      shareConfirmationThanks: '🙌 ఇతర ప్రయాణికులకు సహాయం చేస్తున్నందుకు ధన్యవాదాలు! మీ లైవ్ స్థానంతో Bus {number}ను కనుగొనడం సులభమవుతుంది.',
+      shareConfirmationThanks: '🙌 ఇతర ప్రయాణికులకు సహాయం చేస్తున్నందుకు ధన్యవాదాలు! మీ లైవ్ స్థానంతో బస్సు {number}ను కనుగొనడం సులభమవుతుంది.',
       shareConfirmationAppreciation: 'మీ సహాయం, నమ్మకానికి కృతజ్ఞతలు. 💙',
       shareConfirmationType: 'బస్సు రకం: {type}',
       shareConfirmationSession: 'షేరింగ్ సెషన్: {code} - {route}',
       shareConfirmationAsk: 'షేరింగ్ ప్రారంభించాలా?',
       capacitySaving: 'రద్దీ వివరాలు సేవ్ అవుతున్నాయి...',
       capacityUpdated: 'రద్దీ వివరాలు అప్‌డేట్ అయ్యాయి.',
-      capacityUpdateFailed: 'రద్దీ అప్‌డేట్ కాలేదు: {error}',
+      capacityUpdateFailed: 'రద్దీ వివరాలను అప్‌డేట్ చేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.',
       locationNotAvailable: 'ఈ బ్రౌజర్‌లో స్థానం అందుబాటులో లేదు.',
       locationUnsupported: 'ఈ బ్రౌజర్‌లో స్థాన షేరింగ్‌కు మద్దతు లేదు.',
       lookingNearby: 'దగ్గరలోని బస్సుల కోసం చూస్తోంది...',
@@ -423,9 +487,9 @@
       requiredBusFields: 'బస్సు నంబర్, రూట్, ప్రారంభ స్థలం, గమ్యస్థానం తప్పనిసరి.',
       addingBus: 'బస్సు జోడిస్తోంది...',
       busAdded: '{number} బస్సు విజయవంతంగా జోడించబడింది.',
-      couldNotAddBus: 'బస్సును జోడించలేకపోయాం.',
+      couldNotAddBus: 'బస్సును జోడించలేకపోయాం. మళ్లీ ప్రయత్నించండి.',
       savedSessionTitle: 'షేరింగ్ కొనసాగించాలా?',
-      savedSessionPrompt: 'మీరు Bus {number} షేర్ చేస్తున్నారు. కొనసాగించాలా?',
+      savedSessionPrompt: 'మీరు బస్సు {number} స్థానాన్ని షేర్ చేస్తున్నారు. కొనసాగించాలా?',
       resumeSharing: 'షేరింగ్ కొనసాగించండి',
       remainingSessionTime: 'సెషన్‌లో మిగిలిన సమయం',
       sharingExpired: 'ఈ షేరింగ్ సెషన్ గడువు ముగిసింది.',
@@ -439,7 +503,71 @@
       couldNotLoadSharedLink: 'షేర్ చేసిన బస్సు లింక్ లోడ్ కాలేదు.',
       sharedSessionNotFound: 'షేర్ చేసిన బస్సు సెషన్ దొరకలేదు.',
       sharedSessionShown: 'షేర్ చేసిన బస్సు సెషన్ {code} చూపిస్తోంది.',
-      connectionProblem: 'ప్రస్తుతం ఆ బస్సు వివరాలు లోడ్ కాలేదు.'
+      connectionProblem: 'ప్రస్తుతం ఆ బస్సు వివరాలు లోడ్ కాలేదు.',
+      notAvailable: 'అందుబాటులో లేదు',
+      justNow: 'ఇప్పుడే',
+      secondsAgo: '{count} సెకన్ల క్రితం',
+      secondAgo: '{count} సెకను క్రితం',
+      minutesAgo: '{count} నిమిషాల క్రితం',
+      minuteAgo: '{count} నిమిషం క్రితం',
+      hoursAgo: '{count} గంటల క్రితం',
+      hourAgo: '{count} గంట క్రితం',
+      daysAgo: '{count} రోజుల క్రితం',
+      dayAgo: '{count} రోజు క్రితం',
+      myLocation: 'నా స్థానం',
+      liveBusLocation: '🚌 లైవ్ బస్సు స్థానం',
+      shareSaveFailed: 'స్థాన షేరింగ్ కొనసాగుతోంది, కానీ తాజా స్థానాన్ని సేవ్ చేయలేకపోయాం.',
+      nativeTrackingError: 'బ్యాక్‌గ్రౌండ్ స్థాన ట్రాకింగ్‌లో సమస్య వచ్చింది.',
+      nativeLocationPermission: 'స్క్రీన్ లాక్‌లో ఉన్నప్పటికీ షేర్ కావాలంటే యాప్ సెట్టింగ్స్‌లో “ఎల్లప్పుడూ” స్థాన అనుమతి ఇవ్వండి.',
+      catalogCardAria: 'బస్సు {number}ను వెతకండి. {status}.',
+      recentBusAria: 'బస్సు {number}ను వెతకండి.',
+      active: 'సేవలో ఉంది',
+      inactive: 'సేవలో లేదు',
+      changeLanguage: 'భాష మార్చండి: తెలుగు',
+      privacyLink: 'గోప్యత మరియు వివరాలు',
+      privacyTitle: 'గోప్యత మరియు విధానం | APSRTC Live',
+      privacyHeading: 'గోప్యత మరియు విధానం',
+      privacyIntro: 'APSRTC Live ప్రయాణికులు అందించే సమాచారంతో పనిచేసే ఉచిత బస్సు ట్రాకర్. ఇది APSRTC అధికారిక సమాచారం కాదు.',
+      privacyHowTitle: 'ఇది ఎలా పనిచేస్తుంది',
+      privacyHowText: 'బస్సులో ప్రయాణిస్తున్న వ్యక్తి తన బస్సు స్థానాన్ని పంచుకోవచ్చు. ఇతరులు ఆ స్థానాన్ని మ్యాప్‌లో చూడగలరు.',
+      privacyCollectedTitle: 'షేరింగ్ సమయంలో ఉపయోగించే సమాచారం',
+      privacyCollectedText: 'ఎవరైనా షేర్ చేసినప్పుడు మాత్రమే బస్సు నంబర్, సెషన్ కోడ్, బస్సు రకం, అక్షాంశం, రేఖాంశం, చివరి స్థానం అప్‌డేట్ సమయం ఉపయోగిస్తాం. రద్దీని ఖాళీ, సగం నిండింది లేదా నిండింది అని కూడా తెలియజేయవచ్చు.',
+      privacySessionText: 'ప్రయాణికుడు షేరింగ్ ప్రారంభించిన తర్వాతే స్థానం పంచబడుతుంది; షేరింగ్ ఉన్నంతసేపే కొనసాగుతుంది. ప్రతి అప్‌డేట్‌తో సెషన్‌లోని తాజా స్థానం మారుతుంది. ముగిసిన సెషన్ చివరి స్థానం పాత రికార్డులు తొలగించే వరకు ఉండవచ్చు.',
+      privacyNotCollectedTitle: 'మేము సేకరించనివి',
+      privacyNotCollectedText: 'మీ పేరు, ఈమెయిల్, ఫోన్ నంబర్ లేదా ఖాతా వివరాలు సేకరించము. ప్రకటనలు లేవు.',
+      privacyStorageTitle: 'నిల్వ మరియు వినియోగం',
+      privacyStorageText: 'షేర్ చేసిన సమాచారం Supabase‌లో నిల్వ అవుతుంది. ప్రకటనల కోసం దాన్ని అమ్మము లేదా పంచుకోము.',
+      privacyDeviceText: 'మీ పరికరంలో థీమ్, భాష, ఇటీవల వెతికినవి, చివరిగా ఎంచుకున్న బస్సు రకం, ప్రస్తుతం ఉన్న షేరింగ్ సెషన్ localStorage‌లో నిల్వ అవుతాయి.',
+      privacyAccuracyTitle: 'ఖచ్చితత్వం మరియు జాగ్రత్త',
+      privacyAccuracyText: 'స్థానం ఖచ్చితంగా ఉంటుందని హామీ లేదు. అత్యవసర ప్రయాణం లేదా భద్రత కోసం APSRTC Live‌పై ఆధారపడవద్దు.',
+      privacyTeluguSummaryTitle: 'సంక్షిప్తంగా',
+      privacyTeluguSummaryText: 'APSRTC Live ప్రయాణికులు పంచుకునే సమాచారంతో పనిచేసే ఉచిత బస్సు ట్రాకర్. ప్రయాణికుడు షేరింగ్ ప్రారంభించినప్పుడే బస్సు వివరాలు, స్థానం నిల్వ అవుతాయి. పేరు, ఫోన్, ఈమెయిల్ లేదా ఖాతా వివరాలు సేకరించము. స్థానం ఖచ్చితంగా ఉంటుందని హామీ లేదు; అత్యవసర ప్రయాణానికి దీనిపై ఆధారపడవద్దు.',
+      privacyContactTitle: 'సంప్రదించండి',
+      privacyContactText: 'ప్రశ్నలు లేదా అభిప్రాయాలు?',
+      privacyLastUpdated: 'చివరిగా నవీకరించిన తేదీ:',
+      privacyBack: 'APSRTC Live‌కు తిరిగి వెళ్లండి',
+      busPageTitle: 'బస్సు {number} - APSRTC Live',
+      issueSubject: 'APSRTC Live సమస్య',
+      issueWithBus: 'బస్సు {number} సమస్య',
+      siteDescription: 'APSRTC Live విశాఖపట్నంలో ప్రయాణికులు అందించే లైవ్ బస్సు స్థానాలతో పనిచేసే ఉచిత బస్సు ట్రాకర్.',
+      gpsStatusWaiting: 'వేచి ఉంది',
+      gpsStopped: 'ఆగింది',
+      gpsCallbackReceived: 'స్థాన అప్‌డేట్ అందింది',
+      gpsWatcherStarted: 'GPS పరిశీలన ప్రారంభమైంది',
+      gpsLocationError: 'స్థానంలో లోపం',
+      unknownStatus: 'తెలియదు',
+      none: 'ఏదీ లేదు',
+      waiting: 'వేచి ఉంది',
+      waitingForCallback: 'అప్‌డేట్ కోసం వేచి ఉంది',
+      debugTimestamp: '{value}',
+      gpsWatcherLabel: 'GPS పరిశీలన: {status}',
+      lastCallbackLabel: 'చివరి అప్‌డేట్: {time}',
+      latestCoordinates: 'తాజా అక్షాంశం/రేఖాంశం: {latitude}, {longitude}',
+      errorLabel: 'లోపం: {error}',
+      gpsWaitingMessage: 'GPS వివరాలు: ప్రారంభం కోసం వేచి ఉంది.',
+      nativeSourceRegisterPlugin: 'స్థాన షేరింగ్: registerPlugin ఉపయోగిస్తోంది',
+      nativeSourceCapacitorPlugins: 'స్థాన షేరింగ్: Capacitor.Plugins ఉపయోగిస్తోంది',
+      nativePluginMissing: 'స్థాన షేరింగ్ ప్లగిన్ లేదు; బ్రౌజర్ GPS ఉపయోగిస్తోంది',
     }
   };
 
@@ -496,16 +624,61 @@
         element.alt = t(key);
       }
     });
+    document.querySelectorAll('[data-i18n-title]').forEach((element) => {
+      const key = element.dataset.i18nTitle;
+      if (key && Object.prototype.hasOwnProperty.call(dictionary[currentLanguage], key)) {
+        element.textContent = t(key);
+      }
+    });
+    document.querySelectorAll('[data-i18n-content]').forEach((element) => {
+      const key = element.dataset.i18nContent;
+      if (key && Object.prototype.hasOwnProperty.call(dictionary[currentLanguage], key)) {
+        element.setAttribute('content', t(key));
+      }
+    });
+    document.querySelectorAll('[data-i18n-date]').forEach((element) => {
+      const date = new Date(`${element.dataset.i18nDate}T12:00:00`);
+      if (!Number.isNaN(date.getTime())) {
+        element.textContent = date.toLocaleDateString(
+          currentLanguage === 'te' ? 'te-IN' : 'en-US',
+          { day: 'numeric', month: 'long', year: 'numeric' }
+        );
+      }
+    });
+    translateNativeTrackingMessages();
 
     const toggle = document.getElementById('languageToggle');
     if (toggle) {
       toggle.textContent = currentLanguage === 'te' ? 'తెలుగు | EN' : 'EN | తెలుగు';
       toggle.setAttribute(
         'aria-label',
-        currentLanguage === 'te' ? 'భాష మార్చండి: తెలుగు' : 'Change language: English'
+        t('changeLanguage')
       );
       toggle.setAttribute('aria-pressed', String(currentLanguage === 'te'));
     }
+  }
+
+  function translateNativeTrackingMessages() {
+    document.querySelectorAll('[role="status"]').forEach((element) => {
+      const rawText = element.textContent.trim();
+      const key = element.dataset.nativeTrackingMessageKey ||
+        (rawText.startsWith('Native tracking: using registerPlugin')
+          ? 'nativeSourceRegisterPlugin'
+          : rawText.startsWith('Native tracking: using Capacitor.Plugins')
+            ? 'nativeSourceCapacitorPlugins'
+            : rawText.startsWith('Native tracking: plugin not found')
+              ? 'nativePluginMissing'
+              : rawText.startsWith('Native tracking error:')
+                ? 'nativeTrackingError'
+                : null);
+      if (key) {
+        element.dataset.nativeTrackingMessageKey = key;
+        const translatedText = t(key);
+        if (element.textContent !== translatedText) {
+          element.textContent = translatedText;
+        }
+      }
+    });
   }
 
   function initializeLanguage() {
@@ -533,6 +706,14 @@
         detail: { language: nextLanguage }
       }));
     });
+    if (document.body && typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(translateNativeTrackingMessages);
+      observer.observe(document.body, {
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
+    }
   }
 
   window.t = t;

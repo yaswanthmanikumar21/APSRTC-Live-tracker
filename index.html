@@ -10,6 +10,7 @@
     <meta
       name="description"
       content="APSRTC Live is a free, crowdsourced bus tracker for Visakhapatnam with rider-submitted real-time GPS locations."
+      data-i18n-content="siteDescription"
     />
     <meta name="google-site-verification" content="REPLACE_WITH_YOUR_CODE" />
     <link rel="icon" type="image/png" sizes="64x64" href="Images/favicon.png" />
@@ -115,7 +116,7 @@
           <section class="live-now-section" aria-labelledby="liveNowHeading">
             <div class="live-now-heading">
               <h2 id="liveNowHeading" data-i18n="liveNow">Live now</h2>
-              <p id="liveBusCounter" class="live-bus-counter" aria-live="polite">0 buses live now</p>
+              <p id="liveBusCounter" class="live-bus-counter" aria-live="polite" data-i18n="liveBusCount" data-i18n-values="{&quot;count&quot;:0}">0 buses live now</p>
             </div>
             <div id="liveNowList" class="live-now-list" aria-live="polite"></div>
           </section>
@@ -130,7 +131,7 @@
                   </svg>
                   <span data-i18n="back">Back</span>
                 </button>
-                <h3 id="resultTitle">Bus details</h3>
+                <h3 id="resultTitle" data-i18n="busDetails">Bus details</h3>
               </div>
               <div class="share-link-control">
                 <button id="copyBusLinkBtn" type="button" class="secondary-button">
@@ -297,7 +298,7 @@
 
             <div id="locationPanel" class="location-panel" hidden>
               <h4 data-i18n="locationSharing">Location sharing</h4>
-              <p id="locationStatusText" class="location-status">
+              <p id="locationStatusText" class="location-status" data-i18n="sharingInactive">
                 Location sharing is inactive.
               </p>
               <p id="sharingReminder" class="sharing-reminder" role="status" hidden>
@@ -308,7 +309,7 @@
                 <p><strong data-i18n="latitude">Latitude:</strong> <span id="latitudeValue">-</span></p>
                 <p><strong data-i18n="longitude">Longitude:</strong> <span id="longitudeValue">-</span></p>
                 <p><strong data-i18n="lastLocationUpdate">Last location update:</strong> <span id="lastUpdateValue">-</span></p>
-                <p id="gpsDebugText" class="location-status">
+                <p id="gpsDebugText" class="location-status" data-i18n="gpsWaitingMessage">
                   GPS debug: waiting to start.
                 </p>
               </details>
@@ -442,7 +443,7 @@
 
     <footer class="site-footer">
       <nav class="footer-nav" aria-label="Site information" data-i18n-aria-label="siteInformation">
-        <a class="footer-page-link" href="privacy.html">Privacy and how it works</a>
+        <a class="footer-page-link" href="privacy.html" data-i18n="privacyLink">Privacy and how it works</a>
         <details class="footer-disclosure">
           <summary data-i18n="about">About</summary>
           <p data-i18n="aboutText">APSRTC Live is a free community bus tracker for Visakhapatnam. It is not officially affiliated with APSRTC.</p>
@@ -475,6 +476,7 @@
     </footer>
 
     <script src="js/i18n.js"></script>
+    <script src="js/place-names.js"></script>
     <script src="js/vendor/gsap.min.js"></script>
     <script src="js/vendor/confetti.browser.js"></script>
     <script

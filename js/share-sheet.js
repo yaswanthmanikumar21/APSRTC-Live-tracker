@@ -68,7 +68,7 @@
       } else {
         throw new Error('Clipboard API is unavailable.');
       }
-      message.textContent = window.t?.('linkCopied') || 'Link copied!';
+      message.textContent = window.t('linkCopied');
     } catch (clipboardError) {
       const textarea = document.createElement('textarea');
       textarea.value = currentLink;
@@ -86,9 +86,8 @@
       }
       textarea.remove();
       message.textContent = copied
-        ? (window.t?.('linkCopied') || 'Link copied!')
-        : (window.t?.('copyFailed') ||
-          'Sorry, the link could not be copied. You can copy it from the address bar.');
+        ? window.t('linkCopied')
+        : window.t('copyFailed');
       if (!copied) {
         console.warn('Clipboard API copy failed.', clipboardError);
       }
@@ -104,7 +103,7 @@
       const qrCode = window.qrcode(0, 'M');
       qrCode.addData(currentLink);
       qrCode.make();
-      const svg = qrCode.createSvgTag(5, 4, 'QR code for this bus link');
+      const svg = qrCode.createSvgTag(5, 4, window.t('qrCodeLabel'));
       const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
       qrImage.src = dataUrl;
       qrDownload.href = dataUrl;
@@ -114,8 +113,7 @@
       console.error('Could not generate the bus-link QR code.', error);
       qrOption.hidden = true;
       qrPanel.hidden = true;
-      message.textContent = window.t?.('qrUnavailable') ||
-        'QR sharing is unavailable right now.';
+      message.textContent = window.t('qrUnavailable');
     }
   }
 
@@ -153,8 +151,7 @@
             .catch((error) => {
               if (error.name !== 'AbortError') {
                 console.error('System share failed.', error);
-                message.textContent = window.t?.('sharingUnavailable') ||
-                  'Sharing is unavailable right now.';
+                message.textContent = window.t('sharingUnavailable');
               }
             });
         }
@@ -167,21 +164,20 @@
   function openBusShareSheet({ url, busNumber, busType, trigger }) {
     const validLink = getValidShareLink(url);
     if (!validLink) {
-      message.textContent = window.t?.('invalidShareLink') ||
-        'This bus link is not available to share.';
+      message.textContent = window.t('invalidShareLink');
       return;
     }
 
     currentLink = validLink;
     const busTypeLabel = busType === 'ordinary'
-      ? (window.t?.('ordinary') || 'Ordinary')
+      ? window.t('ordinary')
       : busType === 'metro_express'
-        ? (window.t?.('metroExpress') || 'Metro Express')
+        ? window.t('metroExpress')
         : null;
-    currentShareText = `${window.t?.('trackBusLive', {
+    currentShareText = window.t('trackBusLive', {
       number: String(busNumber || '').trim(),
       type: busTypeLabel ? ` (${busTypeLabel})` : ''
-    }) || `Track Bus ${String(busNumber || '').trim()}${busTypeLabel ? ` (${busTypeLabel})` : ''} live on APSRTC Live`}`;
+    });
     returnFocusTarget = trigger;
     previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';

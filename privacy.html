@@ -7,8 +7,9 @@
     <meta
       name="description"
       content="How APSRTC Live works and what information is used when you share a bus location."
+      data-i18n-content="privacyIntro"
     />
-    <title>Privacy and how it works | APSRTC Live</title>
+    <title data-i18n-title="privacyTitle">Privacy and how it works | APSRTC Live</title>
     <link rel="icon" type="image/png" sizes="64x64" href="Images/favicon.png" />
     <link rel="stylesheet" href="css/styles.css" />
     <script>
@@ -31,74 +32,42 @@
   <body>
     <main class="page-shell">
       <article class="hero-card privacy-page">
+        <button id="languageToggle" class="language-toggle" type="button" aria-label="Change language: English" aria-pressed="false">EN | తెలుగు</button>
         <p class="eyebrow">APSRTC Live</p>
-        <h1>Privacy and how it works</h1>
-        <p>
-          APSRTC Live is a free, crowdsourced bus tracker. Information comes
-          from riders and is not official APSRTC information.
-        </p>
+        <h1 data-i18n="privacyHeading">Privacy and how it works</h1>
+        <p data-i18n="privacyIntro">APSRTC Live is a free, crowdsourced bus tracker. Information comes from riders and is not official APSRTC information.</p>
 
-        <h2>How it works</h2>
-        <p>
-          A rider can choose to share their bus's location while they are on
-          the bus. Other people can then see the shared location on the map.
-        </p>
+        <h2 data-i18n="privacyHowTitle">How it works</h2>
+        <p data-i18n="privacyHowText">A rider can choose to share their bus's location while they are on the bus. Other people can then see the shared location on the map.</p>
 
-        <h2>Information used while sharing</h2>
-        <p>
-          Only when someone shares, we collect the bus number, a session code,
-          the bus type, latitude and longitude, and the time of the latest
-          location update. Riders can also submit a capacity report: empty,
-          half-full, or full.
-        </p>
-        <p>
-          Location sharing starts only after the rider taps to start, and
-          continues only while sharing is on. Each session stores the latest
-          position, replacing it with each update. The last position from a
-          finished session may remain stored until old records are cleared.
-        </p>
+        <h2 data-i18n="privacyCollectedTitle">Information used while sharing</h2>
+        <p data-i18n="privacyCollectedText">Only when someone shares, we collect the bus number, a session code, the bus type, latitude and longitude, and the time of the latest location update. Riders can also submit a capacity report: empty, half-full, or full.</p>
+        <p data-i18n="privacySessionText">Location sharing starts only after the rider taps to start, and continues only while sharing is on. Each session stores the latest position, replacing it with each update. The last position from a finished session may remain stored until old records are cleared.</p>
 
-        <h2>Information we do not collect</h2>
-        <p>
-          We do not collect your name, email address, phone number, or account
-          details. There are no ads.
-        </p>
+        <h2 data-i18n="privacyNotCollectedTitle">Information we do not collect</h2>
+        <p data-i18n="privacyNotCollectedText">We do not collect your name, email address, phone number, or account details. There are no ads.</p>
 
-        <h2>Storage and use</h2>
-        <p>
-          Shared data is stored with Supabase. We do not sell it or share it
-          for advertising.
-        </p>
-        <p>
-          Your device stores your theme, language, recent searches, last
-          selected bus type, and active sharing session in localStorage.
-        </p>
+        <h2 data-i18n="privacyStorageTitle">Storage and use</h2>
+        <p data-i18n="privacyStorageText">Shared data is stored with Supabase. We do not sell it or share it for advertising.</p>
+        <p data-i18n="privacyDeviceText">Your device stores your theme, language, recent searches, last selected bus type, and active sharing session in localStorage.</p>
 
-        <h2>Accuracy and safety</h2>
-        <p>
-          Location accuracy is not guaranteed. Do not rely on APSRTC Live for
-          urgent travel or safety decisions.
-        </p>
+        <h2 data-i18n="privacyAccuracyTitle">Accuracy and safety</h2>
+        <p data-i18n="privacyAccuracyText">Location accuracy is not guaranteed. Do not rely on APSRTC Live for urgent travel or safety decisions.</p>
 
-        <section lang="te" aria-labelledby="teluguSummary">
-          <h2 id="teluguSummary">తెలుగులో సంక్షిప్తంగా</h2>
-          <p>
-            APSRTC Live ప్రయాణికులు పంచుకునే ఉచిత బస్సు ట్రాకర్. ప్రయాణికుడు
-            షేరింగ్ ప్రారంభించినప్పుడు మాత్రమే బస్సు స్థానం, బస్సు నంబర్,
-            బస్సు రకం, సమయం వంటి వివరాలు సేవ్ అవుతాయి. పేరు, ఫోన్ నంబర్,
-            ఈమెయిల్ లేదా ఖాతా వివరాలు సేకరించము. స్థానం ఖచ్చితంగా ఉంటుందని
-            హామీ లేదు; అత్యవసర ప్రయాణానికి దీనిపై ఆధారపడవద్దు.
-          </p>
+        <section aria-labelledby="teluguSummary">
+          <h2 id="teluguSummary" data-i18n="privacyTeluguSummaryTitle">Telugu summary</h2>
+          <p data-i18n="privacyTeluguSummaryText">APSRTC Live is a free bus tracker with location shared by riders. Bus details and location are stored only when a rider starts sharing. We do not collect names, phone numbers, email addresses, or account details. Location accuracy is not guaranteed; do not rely on it for urgent travel.</p>
         </section>
 
-        <h2>Contact</h2>
+        <h2 data-i18n="privacyContactTitle">Contact</h2>
         <p>
-          Questions or feedback?
+          <span data-i18n="privacyContactText">Questions or feedback?</span>
           <a href="mailto:apsrtclive@gmail.com">apsrtclive@gmail.com</a>
         </p>
-        <p><strong>Last updated:</strong> October 16, 2026</p>
-        <p><a href="index.html">Back to APSRTC Live</a></p>
+        <p><strong data-i18n="privacyLastUpdated">Last updated:</strong> <time datetime="2026-10-16" data-i18n-date="2026-10-16">October 16, 2026</time></p>
+        <p><a href="index.html" data-i18n="privacyBack">Back to APSRTC Live</a></p>
       </article>
     </main>
+    <script src="js/i18n.js"></script>
   </body>
 </html>

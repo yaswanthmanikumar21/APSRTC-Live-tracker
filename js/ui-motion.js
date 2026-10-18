@@ -101,9 +101,7 @@
       const render = (value) => {
         const rounded = Math.max(0, Math.round(value));
         const key = rounded === 1 ? 'liveBusCountOne' : 'liveBusCount';
-        counter.textContent = typeof window.t === 'function'
-          ? window.t(key, { count: rounded })
-          : `${rounded} ${rounded === 1 ? 'bus' : 'buses'} live now`;
+        counter.textContent = window.t?.(key, { count: rounded }) || '';
       };
 
       const gsap = getGsap();
@@ -142,7 +140,8 @@
       displayedLiveCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
       const counter = document.getElementById('liveBusCounter');
       if (counter) {
-        counter.textContent = `${displayedLiveCount} ${displayedLiveCount === 1 ? 'bus' : 'buses'} live now`;
+        const key = displayedLiveCount === 1 ? 'liveBusCountOne' : 'liveBusCount';
+        counter.textContent = window.t?.(key, { count: displayedLiveCount }) || '';
       }
     }
   }

@@ -50,7 +50,7 @@
     installButton.type = 'button';
     installButton.className = 'secondary-button pwa-install-button';
     installButton.dataset.i18n = 'installApp';
-    installButton.textContent = window.t?.('installApp') || 'Install app';
+    installButton.textContent = window.t('installApp');
     installButton.style.background = 'var(--surface-soft)';
     installButton.style.border = '1px solid var(--border)';
     installButton.style.borderRadius = '10px';
@@ -77,19 +77,17 @@
 
     const hintText = document.createElement('span');
     hintText.dataset.i18n = 'iosInstallHint';
-    hintText.textContent = window.t?.('iosInstallHint') ||
-      'Tap Share, then Add to Home Screen';
+    hintText.textContent = window.t('iosInstallHint');
 
     const dismissButton = document.createElement('button');
     dismissButton.type = 'button';
     dismissButton.className = 'pwa-install-hint__dismiss';
-    dismissButton.setAttribute('aria-label', 'Dismiss install hint');
     dismissButton.dataset.i18n = 'dismiss';
     dismissButton.dataset.i18nAriaLabel = 'dismissInstallHint';
-    dismissButton.textContent = window.t?.('dismiss') || 'Dismiss';
+    dismissButton.textContent = window.t('dismiss');
     dismissButton.setAttribute(
       'aria-label',
-      window.t?.('dismissInstallHint') || 'Dismiss install hint'
+      window.t('dismissInstallHint')
     );
     dismissButton.style.border = '0';
     dismissButton.style.background = 'transparent';
@@ -112,6 +110,7 @@
 
     host.insertBefore(controls, searchForm);
     controls.append(installButton, hint);
+    window.applyLanguage?.(window.getLanguage?.() || 'en');
     return { installButton, hint };
   }
 

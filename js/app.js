@@ -8,6 +8,9 @@ let catalogLiveStatusAvailable = false;
 let shareCelebrationShown = false;
 let toastSequence = 0;
 let detailsReturnView = { type: 'catalog' };
+let currentDisplayedBus = null;
+let activeSessionsView = 'route';
+let busSearchTypes = new Map();
 
 const busList = document.getElementById('busList');
 const liveNowList = document.getElementById('liveNowList');
@@ -138,6 +141,19 @@ try {
       option.checked = option.value === savedBusType;
     });
   }
+
+  function updateIssueLinkSubject(busNumber = null) {
+    if (!reportIssueLink) {
+      return;
+    }
+    const subject = busNumber
+      ? t('issueWithBus', { number: busNumber })
+      : t('issueSubject');
+    reportIssueLink.href =
+      `https://mail.google.com/mail/?view=cm&fs=1&to=apsrtclive@gmail.com&su=${encodeURIComponent(subject)}`;
+  }
+
+  updateIssueLinkSubject();
 } catch (error) {
   console.warn('The last selected bus type could not be restored.', error);
 }
@@ -191,7 +207,7 @@ function updateSessionBusTypeBadge(busNumber, busCode, busType) {
 
 function setPageTitle(busNumber = null) {
   document.title = busNumber
-    ? `Bus ${busNumber} - APSRTC Live`
+    ? t('busPageTitle', { number: busNumber })
     : 'APSRTC Live';
 }
 
@@ -335,11 +351,35 @@ function renderGpsDebug() {
     return;
   }
 
+  const statusKeys = {
+    waiting: 'gpsStatusWaiting',
+    stopped: 'gpsStopped',
+    'callback received': 'gpsCallbackReceived',
+    'GPS watcher started': 'gpsWatcherStarted',
+    'geolocation error': 'gpsLocationError',
+    none: 'none'
+  };
+  const callbackKeys = {
+    none: 'none',
+    waiting: 'waiting',
+    'waiting for callback': 'waitingForCallback'
+  };
   gpsDebugText.textContent = [
-    `GPS watcher: ${gpsDebugStatus}`,
-    `Last callback: ${gpsDebugCallbackTime}`,
-    `Latest lat/lng: ${gpsDebugLatitude}, ${gpsDebugLongitude}`,
-    `Error: ${gpsDebugError}`
+    t('gpsWatcherLabel', {
+      status: t(statusKeys[gpsDebugStatus] || 'unknownStatus')
+    }),
+    t('lastCallbackLabel', {
+      time: t(callbackKeys[gpsDebugCallbackTime] || 'debugTimestamp', {
+        value: gpsDebugCallbackTime
+      })
+    }),
+    t('latestCoordinates', {
+      latitude: gpsDebugLatitude,
+      longitude: gpsDebugLongitude
+    }),
+    t('errorLabel', {
+      error: gpsDebugError === 'none' ? t('none') : gpsDebugError
+    })
   ].join('\n');
 }
 
@@ -451,7 +491,7 @@ function renderRecentBusSearches() {
     chip.className = 'recent-search-chip';
     chip.dataset.busNumber = busNumber;
     chip.textContent = busNumber;
-    chip.setAttribute('aria-label', `Search bus ${busNumber}`);
+    chip.setAttribute('aria-label', t('recentBusAria', { number: busNumber }));
     recentSearchChips.appendChild(chip);
   });
 }
@@ -522,8 +562,31 @@ function normalizeBusRecord(bus) {
     startingPoint: String(startingPoint || 'Not available').trim(),
     destination: String(destination || 'Not available').trim(),
     stops: stops.map((stop) => String(stop).trim()).filter(Boolean),
-    status: bus.active === false ? 'Inactive' : 'Active'
+    status: bus.active === false ? 'inactive' : 'active'
   };
+}
+
+function translateDisplayedPlace(value) {
+  return value === 'Not available'
+    ? t('notAvailable')
+    : window.translatePlace?.(value) || value;
+}
+
+function translateDisplayedRoute(value) {
+  return value === 'Not available'
+    ? t('notAvailable')
+    : window.translateRoute?.(value) || value;
+}
+
+function translateDisplayedStops(stops) {
+  if (!Array.isArray(stops)) {
+    return [];
+  }
+  const joinedStops = stops.join(', ');
+  return (window.translateStops?.(joinedStops) || joinedStops)
+    .split(',')
+    .map((stop) => stop.trim())
+    .filter(Boolean);
 }
 
 function renderBusCatalogSkeletons() {
@@ -555,7 +618,10 @@ function renderBusCards() {
   if (!busesToRender.length) {
     const emptyCard = document.createElement('article');
     emptyCard.className = 'bus-card';
-    emptyCard.innerHTML = '<p class="bus-route">No buses available right now.</p>';
+    const message = document.createElement('p');
+    message.className = 'bus-route';
+    message.textContent = t('noBusesAvailable');
+    emptyCard.appendChild(message);
     busList.appendChild(emptyCard);
     return;
   }
@@ -576,7 +642,7 @@ function renderBusCards() {
     card.dataset.busNumber = bus.busNumber;
     card.setAttribute(
       'aria-label',
-      `Search bus ${bus.busNumber}. ${liveStatusText}.`
+      t('catalogCardAria', { number: bus.busNumber, status: liveStatusText })
     );
 
     const number = document.createElement('span');
@@ -585,7 +651,9 @@ function renderBusCards() {
 
     const route = document.createElement('span');
     route.className = 'bus-route';
-    route.textContent = t('routeLabel', { route: bus.routeName });
+    route.textContent = t('routeLabel', {
+      route: translateDisplayedRoute(bus.routeName)
+    });
 
     const status = document.createElement('span');
     status.className = 'bus-status';
@@ -643,7 +711,7 @@ function renderLiveNowCards(buses) {
 
     const route = document.createElement('span');
     route.className = 'live-now-card__route';
-    route.textContent = bus.routeName;
+    route.textContent = translateDisplayedRoute(bus.routeName);
     card.append(number, route);
     liveNowList.appendChild(card);
   });
@@ -752,33 +820,39 @@ function clearForcedRefreshInterval() {
 
 function formatTimeAgo(timestamp) {
   if (!timestamp) {
-    return 'just now';
+    return t('justNow');
   }
 
   const parsedTime = new Date(timestamp).getTime();
   if (Number.isNaN(parsedTime)) {
-    return 'just now';
+    return t('justNow');
   }
 
   const diffMs = Math.max(0, Date.now() - parsedTime);
   const totalSeconds = Math.floor(diffMs / 1000);
 
   if (totalSeconds < 60) {
-    return `${totalSeconds} second${totalSeconds === 1 ? '' : 's'} ago`;
+    return t(totalSeconds === 1 ? 'secondAgo' : 'secondsAgo', {
+      count: totalSeconds
+    });
   }
 
   const totalMinutes = Math.floor(totalSeconds / 60);
   if (totalMinutes < 60) {
-    return `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'} ago`;
+    return t(totalMinutes === 1 ? 'minuteAgo' : 'minutesAgo', {
+      count: totalMinutes
+    });
   }
 
   const totalHours = Math.floor(totalMinutes / 60);
   if (totalHours < 24) {
-    return `${totalHours} hour${totalHours === 1 ? '' : 's'} ago`;
+    return t(totalHours === 1 ? 'hourAgo' : 'hoursAgo', {
+      count: totalHours
+    });
   }
 
   const totalDays = Math.floor(totalHours / 24);
-  return `${totalDays} day${totalDays === 1 ? '' : 's'} ago`;
+  return t(totalDays === 1 ? 'dayAgo' : 'daysAgo', { count: totalDays });
 }
 
 function getDistanceKm(lat1, lon1, lat2, lon2) {
@@ -823,8 +897,7 @@ function createBusMapIcon(bearing = 0) {
         <svg
           class="live-bus-icon__svg"
           viewBox="0 0 48 48"
-          role="img"
-          aria-label="Live bus"
+          aria-hidden="true"
         >
           <circle cx="24" cy="24" r="20"></circle>
           <g transform="rotate(${bearing} 24 24)">
@@ -1050,8 +1123,7 @@ function updateActiveSessionTimestamp(timestamp, busNumber, busCode) {
         '[data-route-session-updated-at]'
       );
       if (timestampElement) {
-        timestampElement.textContent =
-          `Updated ${formatTimeAgo(timestamp)}`;
+        timestampElement.textContent = t('updated', { time: formatTimeAgo(timestamp) });
       }
     }
   });
@@ -1092,6 +1164,7 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
     return;
   }
 
+  activeSessionsView = 'route';
   activeBusSessions = Array.isArray(sessionRows) ? sessionRows : [];
   console.log('renderActiveBusSessions called', {
     routeLabel,
@@ -1146,7 +1219,7 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
     meta.appendChild(updated);
     if (session.distanceKm != null) {
       meta.appendChild(document.createTextNode(
-        ` · ${session.distanceKm.toFixed(1)} km away`
+        ` · ${t('distanceKmAway', { distance: session.distanceKm.toFixed(1) })}`
       ));
     }
     button.appendChild(meta);
@@ -1234,7 +1307,9 @@ function renderNearbyBusSessions(sessionRows) {
     return;
   }
 
-  activeSessionsList.innerHTML = '';
+  activeSessionsView = 'nearby';
+  activeBusSessions = Array.isArray(sessionRows) ? sessionRows : [];
+  activeSessionsList.replaceChildren();
   activeSessionsContainer.hidden = false;
   if (activeSessionsHeading) {
     activeSessionsHeading.textContent = t('nearbyActiveBuses');
@@ -1495,6 +1570,7 @@ function clearBusSearchResults() {
 
 function renderBusSearchResults(buses, query, busTypesByNumber = new Map()) {
   busSearchResults = Array.isArray(buses) ? buses : [];
+  busSearchTypes = busTypesByNumber;
   busSearchQuery = query;
   searchResultsList.replaceChildren();
   searchResultsContainer.hidden = false;
@@ -1539,7 +1615,7 @@ function renderBusSearchResults(buses, query, busTypesByNumber = new Map()) {
 
     const routeLabel = document.createElement('span');
     routeLabel.className = 'session-meta';
-    routeLabel.textContent = normalizedBus.routeName;
+    routeLabel.textContent = translateDisplayedRoute(normalizedBus.routeName);
 
     button.append(busLabel, routeLabel);
     item.appendChild(button);
@@ -1914,7 +1990,7 @@ function updateUserLocation(position) {
   if (map) {
     if (!userLocationMarker) {
       userLocationMarker = L.marker([latitude, longitude]).addTo(map);
-      userLocationMarker.bindPopup('My Location');
+      userLocationMarker.bindPopup(t('myLocation'));
     } else {
       userLocationMarker.setLatLng([latitude, longitude]);
     }
@@ -1930,12 +2006,14 @@ function updateUserLocation(position) {
   lastGpsCallbackTime = Date.now();
   saveLocationToSupabase(latitude, longitude, currentBusNumber).catch((error) => {
     console.error('Supabase insert failed', error);
-    locationStatusText.textContent = `Location sharing is active. Supabase save failed: ${error.message}`;
+    locationStatusText.textContent = t('shareSaveFailed');
   });
 }
 
 function handleNativeTrackingError(message, openSettings) {
-  locationStatusText.textContent = message;
+  locationStatusText.textContent = String(message).includes('All the time')
+    ? t('nativeLocationPermission')
+    : t('nativeTrackingError');
   if (typeof openSettings !== 'function') {
     return;
   }
@@ -1959,7 +2037,7 @@ function startLocationSharing(expiresAtOverride = null) {
 
   const selectedBusFromResult = resultNumber.textContent.trim();
   currentBusNumber = selectedBusFromResult && selectedBusFromResult !== '-' ? selectedBusFromResult : null;
-  currentBusRoute = resultRoute.textContent.trim();
+  currentBusRoute = currentDisplayedBus?.routeName || '';
 
   if (!currentBusNumber) {
     stopLocationSharing(t('selectBusFirst'));
@@ -2034,14 +2112,6 @@ function startLocationSharing(expiresAtOverride = null) {
       (error) => {
         console.error('Geolocation watch error', error);
         let message = t('unableToGetLocation');
-        setGpsDebugState({
-          status: 'geolocation error',
-          callbackTime: 'none',
-          latitude: 'none',
-          longitude: 'none',
-          error: message
-        });
-
         if (error.code === error.PERMISSION_DENIED) {
           message = t('locationPermissionDenied');
         } else if (error.code === error.POSITION_UNAVAILABLE) {
@@ -2049,6 +2119,13 @@ function startLocationSharing(expiresAtOverride = null) {
         } else if (error.code === error.TIMEOUT) {
           message = t('locationRequestTimedOut');
         }
+        setGpsDebugState({
+          status: 'geolocation error',
+          callbackTime: 'none',
+          latitude: 'none',
+          longitude: 'none',
+          error: message
+        });
 
         stopLocationSharing(message);
       },
@@ -2248,7 +2325,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
     liveBusMarker = L.marker(currentPosition, {
       icon: createBusMapIcon(travelBearing)
     }).addTo(map);
-    liveBusMarker.bindPopup('🚌 Live Bus Location');
+    liveBusMarker.bindPopup(t('liveBusLocation'));
   } else {
     if (window.moveBusMarkerSmoothly) {
       window.moveBusMarkerSmoothly(liveBusMarker, currentPosition);
@@ -2571,6 +2648,7 @@ async function showBusDetails(bus) {
   const normalizedBus = normalizeBusRecord(bus);
 
   if (!normalizedBus) {
+    currentDisplayedBus = null;
     setPageTitle();
     resultCard.hidden = true;
     mapWrapper.hidden = true;
@@ -2579,6 +2657,8 @@ async function showBusDetails(bus) {
     return;
   }
 
+  currentDisplayedBus = normalizedBus;
+  activeSessionsView = 'route';
   if (detailsBackBtn) {
     detailsBackBtn.hidden = false;
   }
@@ -2587,15 +2667,12 @@ async function showBusDetails(bus) {
   resultTitle.textContent = `${t('busNumber')} ${normalizedBus.busNumber}`;
   setBusTypeBadges(null);
   setPageTitle(normalizedBus.busNumber);
-  if (reportIssueLink) {
-    reportIssueLink.href =
-      `https://mail.google.com/mail/?view=cm&fs=1&to=apsrtclive@gmail.com&su=${encodeURIComponent(`Issue with Bus ${normalizedBus.busNumber}`)}`;
-  }
+  updateIssueLinkSubject(normalizedBus.busNumber);
   resultNumber.textContent = normalizedBus.busNumber;
-  resultRoute.textContent = normalizedBus.routeName;
-  resultStart.textContent = normalizedBus.startingPoint;
-  resultDestination.textContent = normalizedBus.destination;
-  resultStatus.textContent = normalizedBus.status;
+  resultRoute.textContent = translateDisplayedRoute(normalizedBus.routeName);
+  resultStart.textContent = translateDisplayedPlace(normalizedBus.startingPoint);
+  resultDestination.textContent = translateDisplayedPlace(normalizedBus.destination);
+  resultStatus.textContent = t(normalizedBus.status);
   resultSessionCode.textContent = currentBusSessionCode || '-';
   currentBusNumber = normalizedBus.busNumber;
   currentBusRoute = normalizedBus.routeName;
@@ -2610,7 +2687,7 @@ async function showBusDetails(bus) {
     item.textContent = t('noStops');
     resultStops.appendChild(item);
   } else {
-    normalizedBus.stops.forEach((stop) => {
+    translateDisplayedStops(normalizedBus.stops).forEach((stop) => {
       const item = document.createElement('li');
       item.className = 'stop-item';
       item.textContent = stop;
@@ -2893,7 +2970,7 @@ capacityButtons.forEach((button) => {
     } catch (error) {
       console.error('Capacity update failed', error);
       setCapacityMessage('');
-      showToast(t('capacityUpdateFailed', { error: error.message }), true);
+      showToast(t('capacityUpdateFailed'), true);
     } finally {
       capacityButtons.forEach((capacityButton) => {
         capacityButton.disabled = false;
@@ -2980,7 +3057,7 @@ addBusForm.addEventListener('submit', async (event) => {
   });
 
   if (error) {
-    setAddBusMessage(error.message || t('couldNotAddBus'), true);
+    setAddBusMessage(t('couldNotAddBus'), true);
     return;
   }
 
@@ -3045,7 +3122,10 @@ shareLocationBtn.addEventListener('click', () => {
     t('shareConfirmationType', {
       type: chosenBusType === 'ordinary' ? t('ordinary') : t('metroExpress')
     }),
-    t('shareConfirmationSession', { code: sessionCode, route: routeLabel }),
+    t('shareConfirmationSession', {
+      code: sessionCode,
+      route: translateDisplayedRoute(routeLabel)
+    }),
     t('shareConfirmationAsk')
   ].join('\n');
 
@@ -3265,42 +3345,48 @@ async function resumeSavedShareSession(session) {
   }
 }
 
-document.addEventListener('languagechange', () => {
+window.addEventListener('languagechange', () => {
   try {
     renderBusCards();
+    setPageTitle(resultCard.hidden ? null : currentBusNumber);
+    updateIssueLinkSubject(resultCard.hidden ? null : currentBusNumber);
+    if (!searchResultsContainer.hidden) {
+      renderBusSearchResults(busSearchResults, busSearchQuery, busSearchTypes);
+    }
     if (!resultCard.hidden && currentBusNumber) {
       resultTitle.textContent = `${t('busNumber')} ${currentBusNumber}`;
-    }
-
-    const isNearbyList = nearbyBusLatitude !== null &&
-      nearbyBusLongitude !== null &&
-      !activeSessionsContainer.hidden;
-    if (isNearbyList) {
-      activeSessionsHeading.textContent = t('nearbyActiveBuses');
-      activeSessionsMessage.textContent = activeSessionsList.children.length
-        ? t('nearbyActiveBuses')
-        : t('noNearbyBuses');
-    } else if (!activeSessionsContainer.hidden && currentBusNumber && currentBusRoute) {
-      activeSessionsHeading.textContent = t('activeBusesOnRoute');
-      activeSessionsMessage.textContent = activeSessionsList.children.length > 1
-        ? t('activeBusesRoute', { number: currentBusNumber })
-        : t('chooseSpecificBus');
-    }
-
-    document.querySelectorAll('.session-bus-label').forEach((label) => {
-      label.childNodes.forEach((node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          node.textContent = `${t('busNumber')} ${label.dataset.busNumber}` +
-            `${label.dataset.busCode ? `-${label.dataset.busCode}` : ''}`;
+      if (currentDisplayedBus) {
+        resultStatus.textContent = t(currentDisplayedBus.status);
+        resultRoute.textContent = translateDisplayedRoute(currentDisplayedBus.routeName);
+        resultStart.textContent = translateDisplayedPlace(currentDisplayedBus.startingPoint);
+        resultDestination.textContent = translateDisplayedPlace(currentDisplayedBus.destination);
+        resultStops.replaceChildren();
+        if (currentDisplayedBus.stops.length) {
+          translateDisplayedStops(currentDisplayedBus.stops).forEach((stop) => {
+            const item = document.createElement('li');
+            item.className = 'stop-item';
+            item.textContent = stop;
+            resultStops.appendChild(item);
+          });
+        } else {
+          const item = document.createElement('li');
+          item.className = 'stop-item';
+          item.textContent = t('noStops');
+          resultStops.appendChild(item);
         }
-      });
-    });
-    document.querySelectorAll('[data-route-session-updated-at], [data-nearby-updated-at]')
-      .forEach((updated) => {
-        const timestamp = updated.dataset.routeSessionUpdatedAt ||
-          updated.dataset.nearbyUpdatedAt;
-        updated.textContent = t('updated', { time: formatTimeAgo(timestamp) });
-      });
+      }
+    }
+
+    if (!activeSessionsContainer.hidden) {
+      if (activeSessionsView === 'nearby') {
+        renderNearbyBusSessions(activeBusSessions);
+      } else if (currentBusNumber && currentBusRoute) {
+        renderActiveBusSessions(
+          t('activeBusesRoute', { number: currentBusNumber }),
+          activeBusSessions
+        );
+      }
+    }
     if (!searchResultsContainer.hidden) {
       searchResultsMessage.textContent = t('searchChoice', { query: busSearchQuery });
     }
@@ -3309,14 +3395,12 @@ document.addEventListener('languagechange', () => {
         ? t('ordinary')
         : t('metroExpress');
     });
+    userLocationMarker?.getPopup()?.setContent(t('myLocation'));
+    liveBusMarker?.getPopup()?.setContent(t('liveBusLocation'));
 
     if (!isSharingActive) {
       locationStatusText.textContent = t('sharingInactive');
-    } else if (
-      locationStatusText.textContent === 'Location sharing is active' ||
-      locationStatusText.textContent === 'స్థాన షేరింగ్ కొనసాగుతోంది' ||
-      locationStatusText.textContent === t('sharingActive')
-    ) {
+    } else if (locationStatusText.textContent === t('sharingActive')) {
       locationStatusText.textContent = t('sharingActive');
     }
 
