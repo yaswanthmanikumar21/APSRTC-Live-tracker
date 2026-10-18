@@ -15,6 +15,9 @@ let toastSequence = 0;
 let detailsReturnView = { type: 'catalog' };
 let pendingBusDetailsOpen = null;
 let lastInputSearchAt = 0;
+let retryDataLoadKind = 'catalog';
+let globalErrorToastActive = false;
+let globalErrorToastTimer = null;
 
 const busList = document.getElementById('busList');
 const liveNowList = document.getElementById('liveNowList');
@@ -49,6 +52,11 @@ const searchResultsMessage = document.getElementById('searchResultsMessage');
 const searchResultsList = document.getElementById('searchResultsList');
 const loadingIndicator = document.getElementById('loadingIndicator');
 const connectionError = document.getElementById('connectionError');
+const connectionErrorMessage = document.getElementById('connectionErrorMessage');
+const retryDataLoadBtn = document.getElementById('retryDataLoadBtn');
+const offlineBanner = document.getElementById('offlineBanner');
+const mapTileError = document.getElementById('mapTileError');
+const mapEmptyMessage = document.getElementById('mapEmptyMessage');
 const toastContainer = document.getElementById('toastContainer');
 const reportIssueLink = document.getElementById('reportIssueLink');
 const resultCard = document.getElementById('resultCard');
@@ -234,8 +242,8 @@ function updateSessionBusTypeBadge(busNumber, busCode, busType) {
 
 function setPageTitle(busNumber = null) {
   document.title = busNumber
-    ? `Bus ${busNumber} - APSRTC Live`
-    : 'APSRTC Live';
+    ? t('busPageTitle', { number: busNumber })
+    : t('appTitle');
 }
 
 function setResultTab(tabName) {
@@ -431,6 +439,165 @@ function setConnectionError(isVisible) {
   }
 }
 
+function showDataLoadError(kind, messageKey) {
+  retryDataLoadKind = kind;
+  if (connectionErrorMessage) {
+    connectionErrorMessage.textContent = t(messageKey);
+  }
+  setConnectionError(true);
+}
+
+function showUnexpectedErrorToast(error) {
+  if (globalErrorToastActive) {
+    return;
+  }
+  globalErrorToastActive = true;
+  showToast(t('unexpectedError'), true);
+  window.clearTimeout(globalErrorToastTimer);
+  globalErrorToastTimer = window.setTimeout(() => {
+    globalErrorToastActive = false;
+  }, 5000);
+  console.error('Unexpected application error.', error);
+}
+
+function updateOfflineBanner() {
+  if (offlineBanner) {
+    offlineBanner.hidden = navigator.onLine;
+  }
+}
+
+let dialogHistoryBackInProgress = false;
+let generatedDialogHistoryId = 0;
+const dialogHistoryObserver = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    if (mutation.type === 'childList') {
+      mutation.addedNodes.forEach((node) => {
+        if (node instanceof HTMLDialogElement) {
+          trackDialogHistory(node);
+        } else if (node instanceof Element) {
+          node.querySelectorAll('dialog').forEach(trackDialogHistory);
+        }
+      });
+      continue;
+    }
+
+    const dialog = mutation.target;
+    if (!(dialog instanceof HTMLDialogElement)) {
+      continue;
+    }
+    const historyId = getDialogHistoryId(dialog);
+    if (dialog.open) {
+      if (window.history.state?.appDialogId !== historyId) {
+        window.history.pushState(
+          { ...window.history.state, appDialogId: historyId },
+          '',
+          window.location.href
+        );
+      }
+    } else if (dialogHistoryBackInProgress) {
+      dialogHistoryBackInProgress = false;
+    } else if (window.history.state?.appDialogId === historyId) {
+      window.history.back();
+    }
+  }
+});
+
+function getDialogHistoryId(dialog) {
+  if (!dialog.id && !dialog.dataset.historyId) {
+    generatedDialogHistoryId += 1;
+    dialog.dataset.historyId = `app-dialog-${generatedDialogHistoryId}`;
+  }
+  return dialog.id || dialog.dataset.historyId;
+}
+
+function trackDialogHistory(dialog) {
+  dialogHistoryObserver.observe(dialog, {
+    attributes: true,
+    attributeFilter: ['open']
+  });
+  if (dialog.open) {
+    const historyId = getDialogHistoryId(dialog);
+    if (window.history.state?.appDialogId !== historyId) {
+      window.history.pushState(
+        { ...window.history.state, appDialogId: historyId },
+        '',
+        window.location.href
+      );
+    }
+  }
+}
+
+document.querySelectorAll('dialog').forEach(trackDialogHistory);
+dialogHistoryObserver.observe(document.body, { childList: true, subtree: true });
+
+function updateFocusedInputPosition() {
+  const viewport = window.visualViewport;
+  const focused = document.activeElement;
+  if (
+    !viewport ||
+    !(focused instanceof HTMLInputElement ||
+      focused instanceof HTMLTextAreaElement)
+  ) {
+    return;
+  }
+
+  const rect = focused.getBoundingClientRect();
+  const viewportTop = viewport.offsetTop;
+  const viewportBottom = viewportTop + viewport.height;
+  if (rect.bottom > viewportBottom - 12) {
+    window.scrollBy({
+      top: rect.bottom - viewportBottom + 12,
+      behavior: 'smooth'
+    });
+  } else if (rect.top < viewportTop + 12) {
+    window.scrollBy({
+      top: rect.top - viewportTop - 12,
+      behavior: 'smooth'
+    });
+  }
+}
+
+document.addEventListener('focusin', (event) => {
+  if (
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement
+  ) {
+    window.requestAnimationFrame(updateFocusedInputPosition);
+  }
+});
+window.visualViewport?.addEventListener('resize', () => {
+  window.requestAnimationFrame(updateFocusedInputPosition);
+});
+document.addEventListener('submit', (event) => {
+  const form = event.target;
+  if (form instanceof HTMLFormElement && form.contains(document.activeElement)) {
+    window.setTimeout(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }, 0);
+  }
+}, true);
+
+window.addEventListener('error', (event) => {
+  showUnexpectedErrorToast(event.error || event.message);
+});
+window.addEventListener('unhandledrejection', (event) => {
+  showUnexpectedErrorToast(event.reason);
+});
+window.addEventListener('online', () => {
+  updateOfflineBanner();
+  loadBusCatalog().catch((error) => {
+    console.error('Could not refresh the bus catalog after reconnecting.', error);
+    showDataLoadError('catalog', 'catalogLoadFailed');
+  });
+  window.refreshVisibleLiveLists?.().catch((error) => {
+    console.error('Could not refresh live lists after reconnecting.', error);
+  });
+});
+window.addEventListener('offline', updateOfflineBanner);
+updateOfflineBanner();
+
 function hideLoadingIndicator() {
   if (loadingIndicator) {
     loadingIndicator.hidden = true;
@@ -579,11 +746,26 @@ function renderGpsDebug() {
     return;
   }
 
+  const statusKeys = {
+    waiting: 'gpsStatusWaiting',
+    stopped: 'gpsStatusStopped',
+    'callback received': 'gpsStatusCallbackReceived',
+    'GPS watcher started': 'gpsStatusWatcherStarted',
+    'geolocation error': 'gpsStatusGeolocationError'
+  };
+  const callbackTime = gpsDebugCallbackTime === 'none'
+    ? t('none')
+    : gpsDebugCallbackTime === 'waiting for callback'
+      ? t('gpsWaitingForCallback')
+      : gpsDebugCallbackTime;
+  const coordinates = [gpsDebugLatitude, gpsDebugLongitude]
+    .map((value) => value === 'none' ? t('none') : value);
+
   gpsDebugText.textContent = [
-    `GPS watcher: ${gpsDebugStatus}`,
-    `Last callback: ${gpsDebugCallbackTime}`,
-    `Latest lat/lng: ${gpsDebugLatitude}, ${gpsDebugLongitude}`,
-    `Error: ${gpsDebugError}`
+    `${t('gpsWatcher')}: ${t(statusKeys[gpsDebugStatus] || gpsDebugStatus)}`,
+    `${t('lastCallback')}: ${callbackTime}`,
+    `${t('latestCoordinates')}: ${coordinates.join(', ')}`,
+    `${t('error')}: ${gpsDebugError === 'none' ? t('none') : gpsDebugError}`
   ].join('\n');
 }
 
@@ -614,10 +796,20 @@ function setGpsDebugState(partialState) {
 function initMap() {
   map = L.map('map', { maxZoom: 19 }).setView(defaultMapCenter, 13);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
   }).addTo(map);
+  tileLayer.on('tileerror', () => {
+    if (mapTileError) {
+      mapTileError.hidden = false;
+    }
+  });
+  tileLayer.on('tileload', () => {
+    if (mapTileError) {
+      mapTileError.hidden = true;
+    }
+  });
 
   const mapElement = document.getElementById('map');
   const markManualMapGesture = () => {
@@ -1008,6 +1200,9 @@ async function refreshLiveMapMarkers() {
     } else {
       map.setView(defaultMapCenter, 12);
     }
+    if (mapEmptyMessage) {
+      mapEmptyMessage.hidden = coordinates.length > 0;
+    }
     window.requestAnimationFrame(() => map.invalidateSize());
   } catch (error) {
     console.error('Could not load live buses for the map.', error);
@@ -1023,6 +1218,9 @@ async function showLiveMapView() {
     'details-panel-hidden'
   );
   mapWrapper.hidden = false;
+  if (mapEmptyMessage) {
+    mapEmptyMessage.hidden = false;
+  }
   setPageTitle();
   setBottomNavActive('map');
   stopRealtimeSubscription();
@@ -1167,7 +1365,7 @@ function createBusCatalogCard(bus) {
   const route = document.createElement('span');
   route.className = 'bus-route';
   const routeName = bus.routeName && bus.routeName !== 'Not available'
-    ? window.translateRoute?.(bus.routeName) || bus.routeName
+    ? displayPlaceName(bus.routeName, true)
     : '';
   route.textContent = routeName;
   route.hidden = !routeName;
@@ -1206,8 +1404,18 @@ function renderFavoriteBusCards() {
     isFavoriteBus(bus.busNumber)
   );
   myBusesSection.hidden = favoriteBusNumbers.size === 0;
+  if (favoriteBusNumbers.size > 0 && favorites.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'live-now-empty';
+    empty.textContent = t('favoritesUnavailable');
+    favoriteBusList.appendChild(empty);
+  }
   favorites.forEach((bus) => {
-    favoriteBusList.appendChild(createBusCatalogCard(bus));
+    try {
+      favoriteBusList.appendChild(createBusCatalogCard(bus));
+    } catch (error) {
+      console.error('Could not render a favorite bus card.', error, bus);
+    }
   });
 }
 
@@ -1247,7 +1455,7 @@ function renderRecentBusSearches() {
     chip.className = 'recent-search-chip';
     chip.dataset.busNumber = busNumber;
     chip.textContent = busNumber;
-    chip.setAttribute('aria-label', `Search bus ${busNumber}`);
+    chip.setAttribute('aria-label', `${t('searchBus')} ${busNumber}`);
     recentSearchChips.appendChild(chip);
   });
 }
@@ -1322,6 +1530,17 @@ function normalizeBusRecord(bus) {
   };
 }
 
+function displayPlaceName(value, isRoute = false) {
+  const name = typeof value === 'string' ? value.trim() : '';
+  if (!name || name === 'Not available') {
+    return t('notAvailable');
+  }
+  const translate = isRoute
+    ? window.translateRoute
+    : window.translatePlace;
+  return translate?.(name) || name;
+}
+
 function renderBusCatalogSkeletons() {
   if (!busList) {
     return;
@@ -1342,6 +1561,10 @@ function renderBusCatalogSkeletons() {
 }
 
 function renderBusCards() {
+  if (!busList) {
+    console.error('Bus catalog container is missing.');
+    return;
+  }
   busList.replaceChildren();
 
   activeLiveSessions = getUnexpiredLiveSessions(activeLiveSessions);
@@ -1366,7 +1589,11 @@ function renderBusCards() {
   }
 
   busesToRender.forEach((bus) => {
-    busList.appendChild(createBusCatalogCard(bus));
+    try {
+      busList.appendChild(createBusCatalogCard(bus));
+    } catch (error) {
+      console.error('Could not render a bus catalog card.', error, bus);
+    }
   });
   window.UIMotion?.animateCatalogCards(
     Array.from(busList.querySelectorAll('.bus-card:not(.bus-card-skeleton)'))
@@ -1450,10 +1677,14 @@ async function loadActiveCatalogBusNumbers() {
 
 async function loadBusCatalog() {
   if (!window.supabaseHelpers) {
+    console.error(
+      'Bus catalog could not load because Supabase helpers are unavailable.',
+      new Error('Supabase helpers are unavailable.')
+    );
     busCatalog = [];
     activeCatalogBusNumbers = new Set();
     renderBusCards();
-    setConnectionError(true);
+    showDataLoadError('catalog', 'catalogLoadFailed');
     return;
   }
 
@@ -1480,14 +1711,15 @@ async function loadBusCatalog() {
     } else {
       busCatalog = [];
       renderBusCards();
-      searchMessage.textContent = t('noBusRecords');
+      searchMessage.textContent = t('noBusesAvailable');
       setConnectionError(false);
     }
   } catch (error) {
     console.error('Failed to load buses from Supabase', error);
     busCatalog = [];
     renderBusCards();
-    setConnectionError(true);
+    showDataLoadError('catalog', 'catalogLoadFailed');
+    searchMessage.textContent = t('catalogLoadFailed');
   }
 }
 
@@ -1866,7 +2098,7 @@ function renderActiveBusSessions(routeLabel, sessionRows) {
     rowCount: activeBusSessions.length,
     rows: activeBusSessions
   });
-  activeSessionsList.innerHTML = '';
+  activeSessionsList.replaceChildren();
   activeSessionsContainer.hidden = activeBusSessions.length <= 1;
   if (activeSessionsHeading) {
     activeSessionsHeading.textContent = t('activeBusesOnRoute');
@@ -2002,7 +2234,7 @@ function renderNearbyBusSessions(sessionRows) {
     return;
   }
 
-  activeSessionsList.innerHTML = '';
+  activeSessionsList.replaceChildren();
   activeSessionsContainer.hidden = false;
   if (activeSessionsHeading) {
     activeSessionsHeading.textContent = t('nearbyActiveBuses');
@@ -2074,7 +2306,7 @@ async function loadNearbyBusSessions(latitude, longitude, selectFirst = true) {
   resultDestination.textContent = '-';
   resultStatus.textContent = '-';
   resultSessionCode.textContent = '-';
-  resultStops.innerHTML = '';
+  resultStops.replaceChildren();
   resultCard.hidden = false;
   mapWrapper.hidden = false;
 
@@ -2319,7 +2551,7 @@ function clearActiveBusSessions(resetNearbyLocation = true) {
   activeBusSessions = [];
   busSearchResults = [];
   if (activeSessionsList) {
-    activeSessionsList.innerHTML = '';
+    activeSessionsList.replaceChildren();
   }
   if (activeSessionsContainer) {
     activeSessionsContainer.hidden = true;
@@ -2469,8 +2701,7 @@ function renderBusSearchResults(
 
     const routeLabel = document.createElement('span');
     routeLabel.className = 'search-result-card__route';
-    routeLabel.textContent =
-      window.translateRoute?.(normalizedBus.routeName) || normalizedBus.routeName;
+    routeLabel.textContent = displayPlaceName(normalizedBus.routeName, true);
 
     const status = document.createElement('span');
     status.className = 'search-result-card__status';
@@ -2981,7 +3212,7 @@ function updateUserLocation(position) {
   lastGpsCallbackTime = Date.now();
   saveLocationToSupabase(latitude, longitude, currentBusNumber).catch((error) => {
     console.error('Supabase insert failed', error);
-    locationStatusText.textContent = `Location sharing is active. Supabase save failed: ${error.message}`;
+    locationStatusText.textContent = t('locationSharingSaveFailed');
   });
 }
 
@@ -3669,14 +3900,9 @@ async function showBusDetails(bus, autoSelectSession = true) {
       `https://mail.google.com/mail/?view=cm&fs=1&to=apsrtclive@gmail.com&su=${encodeURIComponent(`Issue with Bus ${normalizedBus.busNumber}`)}`;
   }
   resultNumber.textContent = normalizedBus.busNumber;
-  resultRoute.textContent =
-    window.translateRoute?.(normalizedBus.routeName) || normalizedBus.routeName;
-  resultStart.textContent =
-    window.translatePlace?.(normalizedBus.startingPoint) ||
-    normalizedBus.startingPoint;
-  resultDestination.textContent =
-    window.translatePlace?.(normalizedBus.destination) ||
-    normalizedBus.destination;
+  resultRoute.textContent = displayPlaceName(normalizedBus.routeName, true);
+  resultStart.textContent = displayPlaceName(normalizedBus.startingPoint);
+  resultDestination.textContent = displayPlaceName(normalizedBus.destination);
   renderPanelLiveStatus(null);
   resultSessionCode.textContent = currentBusSessionCode || '-';
   currentBusNumber = normalizedBus.busNumber;
@@ -3686,7 +3912,7 @@ async function showBusDetails(bus, autoSelectSession = true) {
   rememberSearchedBus(normalizedBus.busNumber);
   clearBusSearchResults();
 
-  resultStops.innerHTML = '';
+  resultStops.replaceChildren();
 
   if (!normalizedBus.stops.length) {
     const item = document.createElement('li');
@@ -3759,6 +3985,10 @@ searchForm.addEventListener('submit', async (event) => {
   }
 
   if (!window.supabaseHelpers) {
+    console.error(
+      'Bus search could not run because Supabase helpers are unavailable.',
+      new Error('Supabase helpers are unavailable.')
+    );
     setPageTitle();
     clearBusSearchResults();
     stopRealtimeSubscription();
@@ -3766,7 +3996,8 @@ searchForm.addEventListener('submit', async (event) => {
     resultCard.hidden = true;
     mapWrapper.hidden = true;
     activeSessionsContainer.hidden = true;
-    setConnectionError(true);
+    showDataLoadError('search', 'searchLoadFailed');
+    searchMessage.textContent = t('searchLoadFailed');
     return;
   }
 
@@ -3865,7 +4096,8 @@ searchForm.addEventListener('submit', async (event) => {
     resultCard.hidden = true;
     mapWrapper.hidden = true;
     activeSessionsContainer.hidden = true;
-    setConnectionError(true);
+    showDataLoadError('search', 'searchLoadFailed');
+    searchMessage.textContent = t('searchLoadFailed');
   }
 });
 
@@ -3896,6 +4128,17 @@ searchResultsList.addEventListener('scroll', blurSearchInput, {
   passive: true
 });
 liveBusesNearMeBtn?.addEventListener('click', blurSearchInput);
+retryDataLoadBtn?.addEventListener('click', () => {
+  setConnectionError(false);
+  if (retryDataLoadKind === 'search') {
+    searchForm.requestSubmit();
+  } else {
+    loadBusCatalog().catch((error) => {
+      console.error('Could not retry loading the bus catalog.', error);
+      showDataLoadError('catalog', 'catalogLoadFailed');
+    });
+  }
+});
 
 function handleBusCatalogClick(event) {
   const favoriteButton = event.target.closest('[data-favorite-number]');
@@ -4392,6 +4635,18 @@ document.addEventListener('keydown', (event) => {
   }
 });
 window.addEventListener('popstate', () => {
+  const openDialog = Array.from(document.querySelectorAll('dialog'))
+    .reverse()
+    .find((dialog) => dialog.open);
+  if (
+    openDialog &&
+    window.history.state?.appDialogId !== getDialogHistoryId(openDialog)
+  ) {
+    dialogHistoryBackInProgress = true;
+    openDialog.close();
+    return;
+  }
+
   if (
     detailsHistoryEntry &&
     window.history.state?.detailsPanelEntryId !== detailsHistoryEntryId &&
@@ -4533,6 +4788,7 @@ async function resumeSavedShareSession(session) {
 
 window.addEventListener('languagechange', () => {
   try {
+    setPageTitle(!resultCard.hidden ? currentBusNumber : null);
     renderBusCards();
     updateDetailsFavoriteButton();
     if (!mapWrapper.hidden && resultCard.hidden) {
@@ -4543,14 +4799,9 @@ window.addEventListener('languagechange', () => {
       setBusTypeBadges(currentBusType);
       const currentBus = currentDisplayedBusRecord;
       if (currentBus) {
-        resultRoute.textContent =
-          window.translateRoute?.(currentBus.routeName) || currentBus.routeName;
-        resultStart.textContent =
-          window.translatePlace?.(currentBus.startingPoint) ||
-          currentBus.startingPoint;
-        resultDestination.textContent =
-          window.translatePlace?.(currentBus.destination) ||
-          currentBus.destination;
+        resultRoute.textContent = displayPlaceName(currentBus.routeName, true);
+        resultStart.textContent = displayPlaceName(currentBus.startingPoint);
+        resultDestination.textContent = displayPlaceName(currentBus.destination);
         resultStops.replaceChildren();
         if (!currentBus.stops.length) {
           const item = document.createElement('li');
@@ -4667,7 +4918,7 @@ async function initializeApp() {
     );
   } catch (error) {
     console.error('Application data initialization failed', error);
-    setConnectionError(true);
+    showDataLoadError('catalog', 'catalogLoadFailed');
   } finally {
     hideLoadingIndicator();
     window.SessionControl?.initialize({
@@ -4688,6 +4939,7 @@ function startApp() {
   }
   initializeApp().catch((error) => {
     console.error('Application initialization failed', error);
+    showDataLoadError('catalog', 'catalogLoadFailed');
   });
 }
 

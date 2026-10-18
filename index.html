@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>APSRTC Live</title>
+    <title data-i18n="appTitle">APSRTC Live</title>
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#245b84" />
     <link rel="apple-touch-icon" href="Images/icon-192.png" />
@@ -59,8 +59,10 @@
         <span data-i18n="loadingApp">Loading APSRTC Live...</span>
       </div>
       <div id="connectionError" class="status-banner error-banner" role="alert" hidden>
-        <span data-i18n="connectionError">We’re having trouble connecting right now. Please try again in a moment.</span>
+        <span id="connectionErrorMessage" data-i18n="connectionError">We’re having trouble connecting right now. Please try again in a moment.</span>
+        <button id="retryDataLoadBtn" class="secondary-button" type="button" data-i18n="tryAgain">Try again</button>
       </div>
+      <div id="offlineBanner" class="status-banner offline-banner" role="status" data-i18n="offlineBanner" hidden>You are offline. Showing the last known data.</div>
 
       <section class="hero-card">
         <div class="hero-copy">
@@ -68,7 +70,7 @@
           <h1>
             <button id="homeLink" class="home-link" type="button" aria-label="APSRTC Live home" data-i18n-aria-label="homeLabel">
               <img class="brand-logo" src="Images/logo-icon.png" alt="" width="40" height="40" />
-              <span>APSRTC Live</span>
+              <span data-i18n="appTitle">APSRTC Live</span>
             </button>
             <span class="header-actions">
               <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false" data-i18n-aria-label="toggleDarkMode">
@@ -80,7 +82,7 @@
                   <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"></path>
                 </svg>
               </button>
-              <button id="languageToggle" class="language-toggle" type="button" aria-label="Change language: English" aria-pressed="false">EN | తెలుగు</button>
+              <button id="languageToggle" class="language-toggle" type="button" aria-label="Change language: English" aria-pressed="false" data-i18n="languageToggleLabel">EN | తెలుగు</button>
             </span>
           </h1>
           <p class="tagline" data-i18n="tagline">Know where your bus is.</p>
@@ -114,7 +116,7 @@
           <section class="live-now-section" aria-labelledby="liveNowHeading">
             <div class="live-now-heading">
               <h2 id="liveNowHeading" data-i18n="liveNow">Live now</h2>
-              <p id="liveBusCounter" class="live-bus-counter" aria-live="polite">0 buses live now</p>
+              <p id="liveBusCounter" class="live-bus-counter" aria-live="polite" data-i18n="liveBusCount" data-i18n-values='{"count":0}'>0 buses live now</p>
             </div>
             <div id="liveNowList" class="live-now-list" aria-live="polite"></div>
           </section>
@@ -353,6 +355,8 @@
           </span>
         </p>
         <p id="liveLocationStaleWarning" class="map-stale-warning" hidden></p>
+        <p id="mapTileError" class="map-tile-error" role="status" data-i18n="mapTilesUnavailable" hidden>Map tiles are unavailable. Bus information is still available.</p>
+        <p id="mapEmptyMessage" class="map-tile-error" role="status" data-i18n="noLiveMapBuses" hidden>No live buses are on the map right now.</p>
         <div id="map" class="map-container" aria-label="Bus map location" data-i18n-aria-label="mapLocation"></div>
       </div>
 
@@ -415,15 +419,15 @@
             <h3 data-i18n="addBusHeading">Add a new bus</h3>
             <form id="addBusForm" class="add-bus-form">
               <label for="newBusNumber" data-i18n="busNumberRequired">Bus number *</label>
-              <input id="newBusNumber" name="newBusNumber" type="text" placeholder="28" required data-i18n-placeholder="sampleBusNumber" />
+              <input id="newBusNumber" name="newBusNumber" type="text" placeholder="Enter bus number" required data-i18n-placeholder="busNumberPlaceholder" />
               <label for="newBusRoute" data-i18n="routeRequired">Route *</label>
-              <input id="newBusRoute" name="newBusRoute" type="text" placeholder="RK Beach - Simhachalam" required data-i18n-placeholder="sampleRoute" />
+              <input id="newBusRoute" name="newBusRoute" type="text" placeholder="Route" required data-i18n-placeholder="route" />
               <label for="newBusStart" data-i18n="startingPointRequired">Starting point *</label>
-              <input id="newBusStart" name="newBusStart" type="text" placeholder="RK Beach" required data-i18n-placeholder="sampleStartingPoint" />
+              <input id="newBusStart" name="newBusStart" type="text" placeholder="Starting point" required data-i18n-placeholder="startingPoint" />
               <label for="newBusDestination" data-i18n="destinationRequired">Destination *</label>
-              <input id="newBusDestination" name="newBusDestination" type="text" placeholder="Simhachalam" required data-i18n-placeholder="sampleDestination" />
+              <input id="newBusDestination" name="newBusDestination" type="text" placeholder="Destination" required data-i18n-placeholder="destination" />
               <label for="newBusStops" data-i18n="stopsCommaSeparated">Stops (comma-separated)</label>
-              <input id="newBusStops" name="newBusStops" type="text" placeholder="RK Beach, Waltair, Siripuram" data-i18n-placeholder="sampleStops" />
+              <input id="newBusStops" name="newBusStops" type="text" placeholder="Stops" data-i18n-placeholder="stops" />
               <button type="submit" class="primary-button" data-i18n="createBus">Create bus</button>
             </form>
             <p id="addBusMessage" class="form-message"></p>
