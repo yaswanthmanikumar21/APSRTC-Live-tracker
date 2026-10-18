@@ -1,7 +1,9 @@
-const CACHE_VERSION = 'apsrtc-live-v2';
+const CACHE_VERSION = 'apsrtc-live-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
+  '/404.html',
+  '/offline.html',
   '/manifest.json',
   '/css/styles.css',
   '/Images/favicon.png',
@@ -93,8 +95,12 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       } catch (networkError) {
-        const cachedResponse = await cache.match(request) ||
-          (request.mode === 'navigate' ? await cache.match('/index.html') : null);
+        if (request.mode === 'navigate' && self.navigator.onLine) {
+          throw networkError;
+        }
+        const cachedResponse = request.mode === 'navigate'
+          ? await cache.match('/offline.html')
+          : await cache.match(request);
         if (cachedResponse) {
           return cachedResponse;
         }

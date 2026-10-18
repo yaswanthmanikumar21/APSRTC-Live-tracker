@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09090b" />
+    <meta name="description" content="This page was not found. Return to APSRTC Live to find bus routes." />
+    <link rel="icon" type="image/png" href="Images/favicon.png" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <title>Page not found</title>
+    <script>
+      (() => {
+        try {
+          const theme = localStorage.getItem('apsrtc-live-theme');
+          if (theme === 'light' || theme === 'dark') {
+            document.documentElement.dataset.theme = theme;
+          }
+        } catch (error) {
+          console.warn('Theme preference could not be read.', error);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero-card error-page-card">
+        <img class="brand-logo" src="Images/logo-icon.png" alt="" width="48" height="48" />
+        <h1 data-i18n="notFoundTitle">Page not found</h1>
+        <p data-i18n="notFoundMessage">This page was not found.</p>
+        <a class="primary-button error-page-link" href="./index.html" data-i18n="returnHome">Back to home</a>
+      </section>
+    </main>
+    <script src="js/i18n.js"></script>
+    <script>
+      const updatePageTitle = () => {
+        document.title = t('notFoundTitle');
+      };
+      updatePageTitle();
+      window.addEventListener('languagechange', updatePageTitle);
+    </script>
+  </body>
+</html>

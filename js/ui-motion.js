@@ -103,7 +103,7 @@
         const key = rounded === 1 ? 'liveBusCountOne' : 'liveBusCount';
         counter.textContent = typeof window.t === 'function'
           ? window.t(key, { count: rounded })
-          : `${rounded} ${rounded === 1 ? 'bus' : 'buses'} live now`;
+          : String(rounded);
       };
 
       const gsap = getGsap();
@@ -142,7 +142,11 @@
       displayedLiveCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
       const counter = document.getElementById('liveBusCounter');
       if (counter) {
-        counter.textContent = `${displayedLiveCount} ${displayedLiveCount === 1 ? 'bus' : 'buses'} live now`;
+        counter.textContent = typeof window.t === 'function'
+          ? window.t(displayedLiveCount === 1 ? 'liveBusCountOne' : 'liveBusCount', {
+            count: displayedLiveCount
+          })
+          : String(displayedLiveCount);
       }
     }
   }
