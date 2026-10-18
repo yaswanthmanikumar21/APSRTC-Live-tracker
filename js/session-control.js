@@ -65,11 +65,15 @@
 
     const title = document.createElement('h2');
     title.id = 'resumeShareTitle';
-    title.textContent = 'Continue sharing?';
+    title.dataset.i18n = 'savedSessionTitle';
+    title.textContent = window.t?.('savedSessionTitle') || 'Continue sharing?';
 
     const message = document.createElement('p');
-    message.textContent =
-      `You were sharing Bus ${session.busNumber}. Do you want to continue?`;
+    message.dataset.i18n = 'savedSessionPrompt';
+    message.dataset.i18nValues = JSON.stringify({ number: session.busNumber });
+    message.textContent = window.t?.('savedSessionPrompt', {
+      number: session.busNumber
+    }) || `You were sharing Bus ${session.busNumber}. Do you want to continue?`;
 
     const actions = document.createElement('div');
     actions.style.display = 'flex';
@@ -80,12 +84,14 @@
     const resumeButton = document.createElement('button');
     resumeButton.type = 'button';
     resumeButton.className = 'primary-button';
-    resumeButton.textContent = 'Resume sharing';
+    resumeButton.dataset.i18n = 'resumeSharing';
+    resumeButton.textContent = window.t?.('resumeSharing') || 'Resume sharing';
 
     const stopButton = document.createElement('button');
     stopButton.type = 'button';
     stopButton.className = 'secondary-button';
-    stopButton.textContent = 'Stop sharing';
+    stopButton.dataset.i18n = 'stopSharing';
+    stopButton.textContent = window.t?.('stopSharing') || 'Stop sharing';
 
     resumeButton.addEventListener('click', async () => {
       dismissResumeDialog();

@@ -68,7 +68,7 @@
       } else {
         throw new Error('Clipboard API is unavailable.');
       }
-      message.textContent = 'Link copied!';
+      message.textContent = window.t?.('linkCopied') || 'Link copied!';
     } catch (clipboardError) {
       const textarea = document.createElement('textarea');
       textarea.value = currentLink;
@@ -86,8 +86,9 @@
       }
       textarea.remove();
       message.textContent = copied
-        ? 'Link copied!'
-        : 'Sorry, the link could not be copied. You can copy it from the address bar.';
+        ? (window.t?.('linkCopied') || 'Link copied!')
+        : (window.t?.('copyFailed') ||
+          'Sorry, the link could not be copied. You can copy it from the address bar.');
       if (!copied) {
         console.warn('Clipboard API copy failed.', clipboardError);
       }
@@ -113,7 +114,8 @@
       console.error('Could not generate the bus-link QR code.', error);
       qrOption.hidden = true;
       qrPanel.hidden = true;
-      message.textContent = 'QR sharing is unavailable right now.';
+      message.textContent = window.t?.('qrUnavailable') ||
+        'QR sharing is unavailable right now.';
     }
   }
 
@@ -151,7 +153,8 @@
             .catch((error) => {
               if (error.name !== 'AbortError') {
                 console.error('System share failed.', error);
-                message.textContent = 'Sharing is unavailable right now.';
+                message.textContent = window.t?.('sharingUnavailable') ||
+                  'Sharing is unavailable right now.';
               }
             });
         }
@@ -164,17 +167,21 @@
   function openBusShareSheet({ url, busNumber, busType, trigger }) {
     const validLink = getValidShareLink(url);
     if (!validLink) {
-      message.textContent = 'This bus link is not available to share.';
+      message.textContent = window.t?.('invalidShareLink') ||
+        'This bus link is not available to share.';
       return;
     }
 
     currentLink = validLink;
     const busTypeLabel = busType === 'ordinary'
-      ? 'Ordinary'
+      ? (window.t?.('ordinary') || 'Ordinary')
       : busType === 'metro_express'
-        ? 'Metro Express'
+        ? (window.t?.('metroExpress') || 'Metro Express')
         : null;
-    currentShareText = `Track Bus ${String(busNumber || '').trim()}${busTypeLabel ? ` (${busTypeLabel})` : ''} live on APSRTC Live`;
+    currentShareText = `${window.t?.('trackBusLive', {
+      number: String(busNumber || '').trim(),
+      type: busTypeLabel ? ` (${busTypeLabel})` : ''
+    }) || `Track Bus ${String(busNumber || '').trim()}${busTypeLabel ? ` (${busTypeLabel})` : ''} live on APSRTC Live`}`;
     returnFocusTarget = trigger;
     previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';

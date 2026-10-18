@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#245b84" />
+    <meta
+      name="description"
+      content="How APSRTC Live works and what information is used when you share a bus location."
+    />
+    <title>Privacy and how it works | APSRTC Live</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="Images/favicon.png" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <script>
+      (() => {
+        let theme = null;
+        try {
+          theme = localStorage.getItem('apsrtc-live-theme');
+        } catch (error) {
+          console.warn('Theme preference could not be read.', error);
+        }
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <article class="hero-card privacy-page">
+        <p class="eyebrow">APSRTC Live</p>
+        <h1>Privacy and how it works</h1>
+        <p>
+          APSRTC Live is a free, crowdsourced bus tracker. Information comes
+          from riders and is not official APSRTC information.
+        </p>
+
+        <h2>How it works</h2>
+        <p>
+          A rider can choose to share their bus's location while they are on
+          the bus. Other people can then see the shared location on the map.
+        </p>
+
+        <h2>Information used while sharing</h2>
+        <p>
+          Only when someone shares, we collect the bus number, a session code,
+          the bus type, latitude and longitude, and the time of the latest
+          location update. Riders can also submit a capacity report: empty,
+          half-full, or full.
+        </p>
+        <p>
+          Location sharing starts only after the rider taps to start, and
+          continues only while sharing is on. Each session stores the latest
+          position, replacing it with each update. The last position from a
+          finished session may remain stored until old records are cleared.
+        </p>
+
+        <h2>Information we do not collect</h2>
+        <p>
+          We do not collect your name, email address, phone number, or account
+          details. There are no ads.
+        </p>
+
+        <h2>Storage and use</h2>
+        <p>
+          Shared data is stored with Supabase. We do not sell it or share it
+          for advertising.
+        </p>
+        <p>
+          Your device stores your theme, language, recent searches, last
+          selected bus type, and active sharing session in localStorage.
+        </p>
+
+        <h2>Accuracy and safety</h2>
+        <p>
+          Location accuracy is not guaranteed. Do not rely on APSRTC Live for
+          urgent travel or safety decisions.
+        </p>
+
+        <section lang="te" aria-labelledby="teluguSummary">
+          <h2 id="teluguSummary">తెలుగులో సంక్షిప్తంగా</h2>
+          <p>
+            APSRTC Live ప్రయాణికులు పంచుకునే ఉచిత బస్సు ట్రాకర్. ప్రయాణికుడు
+            షేరింగ్ ప్రారంభించినప్పుడు మాత్రమే బస్సు స్థానం, బస్సు నంబర్,
+            బస్సు రకం, సమయం వంటి వివరాలు సేవ్ అవుతాయి. పేరు, ఫోన్ నంబర్,
+            ఈమెయిల్ లేదా ఖాతా వివరాలు సేకరించము. స్థానం ఖచ్చితంగా ఉంటుందని
+            హామీ లేదు; అత్యవసర ప్రయాణానికి దీనిపై ఆధారపడవద్దు.
+          </p>
+        </section>
+
+        <h2>Contact</h2>
+        <p>
+          Questions or feedback?
+          <a href="mailto:apsrtclive@gmail.com">apsrtclive@gmail.com</a>
+        </p>
+        <p><strong>Last updated:</strong> October 16, 2026</p>
+        <p><a href="index.html">Back to APSRTC Live</a></p>
+      </article>
+    </main>
+  </body>
+</html>
