@@ -59,6 +59,8 @@ const resultRoute = document.getElementById('resultRoute');
 const resultStart = document.getElementById('resultStart');
 const resultDestination = document.getElementById('resultDestination');
 const resultStatus = document.getElementById('resultStatus');
+const livePanelStatus = document.getElementById('livePanelStatus');
+const livePanelUpdated = document.getElementById('livePanelUpdated');
 const resultSessionCode = document.getElementById('resultSessionCode');
 const resultStops = document.getElementById('resultStops');
 const liveDirection = document.getElementById('liveDirection');
@@ -75,6 +77,10 @@ const activeSessionsMessage = document.getElementById('activeSessionsMessage');
 const activeSessionsList = document.getElementById('activeSessionsList');
 const mapWrapper = document.getElementById('mapWrapper');
 const followBusBtn = document.getElementById('followBusBtn');
+const panelFollowBtn = document.getElementById('panelFollowBtn');
+const detailsMapBtn = document.getElementById('detailsMapBtn');
+const mapDetailsBtn = document.getElementById('mapDetailsBtn');
+const detailsDragHandle = document.querySelector('.details-drag-handle');
 const liveBusesNearMeBtn = document.getElementById('liveBusesNearMeBtn');
 const shareLocationBtn = document.getElementById('shareLocationBtn');
 const busTypeOptions = document.querySelectorAll('input[name="shareBusType"]');
@@ -101,11 +107,14 @@ let liveMapRefreshInterval = null;
 let liveCatalogRefreshInterval = null;
 let followLiveBus = true;
 let followMapInitializedForBus = false;
+let initialBusFlyInProgress = false;
 let currentLiveBusExpiresAt = null;
 let mapUserGestureAt = 0;
 let programmaticMapMove = false;
 let programmaticMapMoveTimer = null;
 let lastFollowPanAt = 0;
+let panelDragStartY = null;
+let panelDragHandled = false;
 let previousLiveBusPosition = null;
 let liveBusTrail = [];
 let liveBusTrailSegments = [];
@@ -234,6 +243,97 @@ function setResultTab(tabName) {
   }
 }
 
+function isPhoneDetailsLayout() {
+  return window.matchMedia('(max-width: 767px)').matches;
+}
+
+function setDetailsPanelState(state) {
+  if (!resultCard || resultCard.hidden) {
+    return;
+  }
+
+  if (!isPhoneDetailsLayout()) {
+    document.body.classList.toggle('details-panel-hidden', state === 'hidden');
+  } else {
+    document.body.classList.remove('details-panel-hidden');
+    resultCard.dataset.snapState = ['peek', 'half', 'full'].includes(state)
+      ? state
+      : 'peek';
+  }
+  window.requestAnimationFrame(() => {
+    map?.invalidateSize({ pan: false });
+    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+      panMapToLiveBus(true);
+    }
+  });
+}
+
+function openDetailsPanel() {
+  document.body.classList.add('details-panel-open');
+  document.body.classList.remove('details-panel-hidden');
+  setDetailsPanelState('peek');
+  window.requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
+}
+
+function advanceDetailsPanelState(direction = 1) {
+  if (!isPhoneDetailsLayout()) {
+    setDetailsPanelState('peek');
+    return;
+  }
+  const states = ['peek', 'half', 'full'];
+  const currentIndex = Math.max(
+    0,
+    states.indexOf(resultCard.dataset.snapState || 'peek')
+  );
+  const nextIndex = direction > 0
+    ? (currentIndex + 1) % states.length
+    : Math.max(0, currentIndex - 1);
+  setDetailsPanelState(states[nextIndex]);
+}
+
+function getBusMapTarget(position) {
+  if (!map) {
+    return position;
+  }
+  const zoom = map.getZoom();
+  const projected = map.project(position, zoom);
+  const size = map.getSize();
+  let target = projected;
+  let offsetX = 0;
+  let offsetY = 0;
+  if (isPhoneDetailsLayout() && document.body.classList.contains('details-panel-open')) {
+    const state = resultCard.dataset.snapState || 'peek';
+    const sheetHeight = state === 'full'
+      ? window.innerHeight * 0.9
+      : state === 'half'
+        ? window.innerHeight * 0.5
+        : 150;
+    offsetY = sheetHeight / 2;
+  } else if (!isPhoneDetailsLayout() && document.body.classList.contains('details-panel-open')) {
+    const panelWidth = 380;
+    const visibleMapCenterX =
+      (window.innerWidth + panelWidth) / 2 -
+      mapWrapper.getBoundingClientRect().left;
+    offsetX = document.body.classList.contains('details-panel-hidden')
+      ? 0
+      : visibleMapCenterX - size.x / 2;
+  }
+  if (userLocationMarker) {
+    const userPoint = map.project(userLocationMarker.getLatLng(), zoom);
+    const availableHeight = size.y - (offsetY * 2);
+    const fitsBesideBus =
+      Math.abs(userPoint.x - projected.x) <= size.x - 80 &&
+      Math.abs(userPoint.y - projected.y) <= availableHeight - 80;
+    if (fitsBesideBus) {
+      target = projected.add(userPoint).divideBy(2);
+    }
+  }
+  return map.unproject(
+    target.add(L.point(offsetX, offsetY)),
+    zoom
+  );
+}
+
 function setConnectionError(isVisible) {
   if (connectionError) {
     connectionError.hidden = !isVisible;
@@ -284,6 +384,10 @@ function returnToHome() {
   searchInput.value = '';
 
   resultCard.hidden = true;
+  document.body.classList.remove(
+    'details-panel-open',
+    'details-panel-hidden'
+  );
   favoriteBusBtn.hidden = true;
   detailsBackBtn.hidden = true;
   mapWrapper.hidden = true;
@@ -321,6 +425,7 @@ function returnToHome() {
     `${url.pathname}${url.search}${url.hash}`
   );
 
+  window.requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -331,6 +436,10 @@ function returnFromBusDetails() {
   clearLiveMapMarkers();
   clearActiveBusSessions();
   resultCard.hidden = true;
+  document.body.classList.remove(
+    'details-panel-open',
+    'details-panel-hidden'
+  );
   detailsBackBtn.hidden = true;
   mapWrapper.hidden = true;
   setPageTitle();
@@ -369,6 +478,7 @@ function returnFromBusDetails() {
   }
 
   setResultTab('details');
+  window.requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -441,10 +551,39 @@ function initMap() {
       setBusFollowEnabled(false);
     }
   });
+  map.on('click', () => {
+    if (
+      isPhoneDetailsLayout() &&
+      document.body.classList.contains('details-panel-open') &&
+      resultCard.dataset.snapState !== 'peek'
+    ) {
+      setDetailsPanelState('peek');
+    }
+  });
+  resultCard.addEventListener('transitionend', (event) => {
+    if (event.propertyName !== 'transform') {
+      return;
+    }
+    map?.invalidateSize({ pan: false });
+    if (
+      followLiveBus &&
+      initialBusFlyInProgress
+    ) {
+      return;
+    }
+    if (
+      followLiveBus &&
+      followMapInitializedForBus &&
+      map?.getZoom() < 16
+    ) {
+      return;
+    }
+    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+      panMapToLiveBus(true);
+    }
+  });
 
   if (followBusBtn) {
-    followBusBtn.hidden = false;
-    document.body.appendChild(followBusBtn);
     followBusBtn.hidden = true;
     followBusBtn.addEventListener('click', () => {
       setBusFollowEnabled(true);
@@ -453,6 +592,31 @@ function initMap() {
       }
     });
   }
+
+  detailsDragHandle?.addEventListener('click', () => {
+    if (panelDragHandled) {
+      panelDragHandled = false;
+      return;
+    }
+    advanceDetailsPanelState();
+  });
+  detailsDragHandle?.addEventListener('pointerdown', (event) => {
+    panelDragStartY = event.clientY;
+    panelDragHandled = false;
+    detailsDragHandle.setPointerCapture(event.pointerId);
+  });
+  detailsDragHandle?.addEventListener('pointerup', (event) => {
+    if (panelDragStartY === null) {
+      return;
+    }
+    const movement = event.clientY - panelDragStartY;
+    panelDragStartY = null;
+    if (Math.abs(movement) < 24) {
+      return;
+    }
+    panelDragHandled = true;
+    advanceDetailsPanelState(movement < 0 ? 1 : -1);
+  });
 }
 
 function isCurrentBusLive() {
@@ -472,6 +636,9 @@ function panMapToLiveBus(force = false) {
   if (!followLiveBus || !isCurrentBusLive() || !liveBusMarker || !map) {
     return;
   }
+  if (initialBusFlyInProgress) {
+    return;
+  }
 
   const now = Date.now();
   if (!force && now - lastFollowPanAt < 1000) {
@@ -483,7 +650,7 @@ function panMapToLiveBus(force = false) {
     '(prefers-reduced-motion: reduce)'
   ).matches;
   markProgrammaticMapMove();
-  map.panTo(liveBusMarker.getLatLng(), {
+  map.panTo(getBusMapTarget(liveBusMarker.getLatLng()), {
     animate: !reducedMotion,
     duration: 1
   });
@@ -593,6 +760,10 @@ async function refreshLiveMapMarkers() {
 async function showLiveMapView() {
   moreMenu?.close();
   resultCard.hidden = true;
+  document.body.classList.remove(
+    'details-panel-open',
+    'details-panel-hidden'
+  );
   mapWrapper.hidden = false;
   setPageTitle();
   setBottomNavActive('map');
@@ -1221,7 +1392,7 @@ function renderLiveDirection(isMoving) {
   }
 
   if (liveDirectionDot) {
-    liveDirectionDot.hidden = isMoving;
+    liveDirectionDot.hidden = true;
   }
 
   if (liveDirectionLabel) {
@@ -1775,9 +1946,10 @@ function selectActiveBusSession(busNumber, busCode, busType = null) {
 
   setBusFollowEnabled(true);
   followMapInitializedForBus = false;
+  initialBusFlyInProgress = false;
   currentBusSessionCode = busCode;
   setResultTab('live');
-  resultTitle.textContent = `${t('busNumber')} ${busNumber}`;
+  resultTitle.textContent = busNumber;
   setBusTypeBadges(busType);
   resultSessionCode.textContent = busCode || '-';
   resultNumber.textContent = busNumber;
@@ -2223,12 +2395,11 @@ function startBusLocationTicker(liveMessageElement, timestamp) {
     const warningBadge = document.getElementById('liveLocationWarning');
     const staleWarning = document.getElementById('liveLocationStaleWarning');
 
+    renderPanelLiveStatus(currentTimestamp);
     setBusFollowEnabled(followLiveBus);
-    updateRelativeTimestampText(
-      liveMessageElement,
-      currentTimestamp,
-      'Live bus location found. Updated '
-    );
+    if (liveMessageElement) {
+      liveMessageElement.textContent = '';
+    }
     liveMessageElement.parentElement?.classList.toggle(
       'map-note--warning',
       ageMilliseconds >= 60000 && ageMilliseconds <= 120000
@@ -2257,6 +2428,41 @@ function startBusLocationTicker(liveMessageElement, timestamp) {
 
   tick();
   busLocationTicker = window.setInterval(tick, 1000);
+}
+
+function renderPanelLiveStatus(timestamp = liveBusUpdatedAt) {
+  const parsedTimestamp = timestamp ? new Date(timestamp).getTime() : NaN;
+  const isValid = Number.isFinite(parsedTimestamp);
+  const isExpired = Number.isFinite(currentLiveBusExpiresAt) &&
+    currentLiveBusExpiresAt <= Date.now();
+  const age = isValid ? Math.max(0, Date.now() - parsedTimestamp) : Infinity;
+  const status = !isValid || isExpired
+    ? 'notLive'
+    : age >= 60000
+      ? 'lastSeenStatus'
+      : 'liveNow';
+  const panelStatusText = status === 'lastSeenStatus'
+    ? t(status, { time: formatTimeAgo(timestamp) })
+    : t(status);
+  const summaryStatusText = status === 'liveNow'
+    ? t('liveUpdatedStatus', { time: formatTimeAgo(timestamp) })
+    : panelStatusText;
+  resultStatus.textContent = summaryStatusText;
+  resultStatus.classList.toggle('status-live', status === 'liveNow');
+  resultStatus.classList.toggle('status-stale', status === 'lastSeenStatus');
+  resultStatus.classList.toggle('status-offline', status === 'notLive');
+
+  if (livePanelStatus) {
+    livePanelStatus.textContent = panelStatusText;
+    livePanelStatus.classList.toggle('status-live', status === 'liveNow');
+    livePanelStatus.classList.toggle('status-stale', status === 'lastSeenStatus');
+    livePanelStatus.classList.toggle('status-offline', status === 'notLive');
+  }
+  if (livePanelUpdated) {
+    livePanelUpdated.textContent = isValid && !isExpired
+      ? t('updated', { time: formatTimeAgo(timestamp) })
+      : '';
+  }
 }
 
 function refreshGpsLocation() {
@@ -2673,6 +2879,7 @@ function clearLiveBusMarker() {
   liveBusMarker = null;
   currentLiveBusExpiresAt = null;
   setBusFollowEnabled(followLiveBus);
+  renderPanelLiveStatus(null);
   previousLiveBusPosition = null;
   clearLiveBusTrail();
 }
@@ -2814,6 +3021,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   liveBusUpdatedAt = row.updated_at;
   currentLiveBusExpiresAt = expiresAt;
   setBusFollowEnabled(followLiveBus);
+  renderPanelLiveStatus(row.updated_at);
 
   const latitude = Number(row.latitude);
   const longitude = Number(row.longitude);
@@ -2859,25 +3067,34 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
     window.flashLiveUpdate?.(liveMessage);
   }
 
-  if (map && !markerAlreadyExists) {
-    if (followLiveBus && !followMapInitializedForBus) {
-      const reducedMotion = window.matchMedia?.(
-        '(prefers-reduced-motion: reduce)'
-      ).matches;
-      markProgrammaticMapMove();
-      map.flyTo(currentPosition, 16, {
-        animate: !reducedMotion,
-        duration: 1
-      });
-      followMapInitializedForBus = true;
-    } else if (followLiveBus) {
-      markProgrammaticMapMove();
-      map.panTo(currentPosition, {
-        animate: true,
-        duration: 1
-      });
-    }
-    map.invalidateSize();
+  if (map && followLiveBus && !followMapInitializedForBus) {
+    map.invalidateSize({ pan: false });
+    const reducedMotion = window.matchMedia?.(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+    markProgrammaticMapMove();
+    initialBusFlyInProgress = true;
+    map.once('moveend', () => {
+      initialBusFlyInProgress = false;
+      if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+        panMapToLiveBus(true);
+      }
+    });
+    map.flyTo(getBusMapTarget(currentPosition), 16, {
+      animate: !reducedMotion,
+      duration: 1
+    });
+    followMapInitializedForBus = true;
+  } else if (map && !markerAlreadyExists && followLiveBus) {
+    map.invalidateSize({ pan: false });
+    const reducedMotion = window.matchMedia?.(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+    markProgrammaticMapMove();
+    map.panTo(getBusMapTarget(currentPosition), {
+      animate: !reducedMotion,
+      duration: 1
+    });
   }
 }
 
@@ -2888,7 +3105,9 @@ async function startRealtimeForBus(busNumber, busCode = null) {
   lastSeenBusUpdatedAt = null;
   currentLiveBusExpiresAt = null;
   followMapInitializedForBus = false;
+  initialBusFlyInProgress = false;
   setBusFollowEnabled(followLiveBus);
+  renderPanelLiveStatus(null);
 
   const liveMessage = document.getElementById('liveLocationMessage');
   const liveLocationWarning = document.getElementById('liveLocationWarning');
@@ -3203,9 +3422,10 @@ async function showBusDetails(bus, autoSelectSession = true) {
   setResultTab('details');
   setBusFollowEnabled(true);
   followMapInitializedForBus = false;
+  initialBusFlyInProgress = false;
   currentLiveBusExpiresAt = null;
   resetLiveStatus();
-  resultTitle.textContent = `${t('busNumber')} ${normalizedBus.busNumber}`;
+  resultTitle.textContent = normalizedBus.busNumber;
   setBusTypeBadges(null);
   setPageTitle(normalizedBus.busNumber);
   if (reportIssueLink) {
@@ -3221,7 +3441,7 @@ async function showBusDetails(bus, autoSelectSession = true) {
   resultDestination.textContent =
     window.translatePlace?.(normalizedBus.destination) ||
     normalizedBus.destination;
-  resultStatus.textContent = normalizedBus.status;
+  renderPanelLiveStatus(null);
   resultSessionCode.textContent = currentBusSessionCode || '-';
   currentBusNumber = normalizedBus.busNumber;
   currentBusRoute = normalizedBus.routeName;
@@ -3249,15 +3469,14 @@ async function showBusDetails(bus, autoSelectSession = true) {
   resultCard.hidden = false;
   mapWrapper.hidden = false;
   activeSessionsContainer.hidden = true;
-  window.UIMotion?.animateDetailsPanel(resultCard);
-
+  openDetailsPanel();
   stopRealtimeSubscription();
   clearLiveBusMarker();
   clearActiveBusSessions();
 
   if (map) {
     map.setView(defaultMapCenter, 13);
-    setTimeout(() => map.invalidateSize(), 100);
+    window.setTimeout(() => map.invalidateSize({ pan: false }), 100);
   }
 
   await loadActiveBusSessions(
@@ -3799,6 +4018,38 @@ bottomHomeBtn?.addEventListener('click', returnToHome);
 bottomLiveMapBtn?.addEventListener('click', showLiveMapView);
 detailsBackBtn.addEventListener('click', returnFromBusDetails);
 document.getElementById('detailsCloseBtn')?.addEventListener('click', returnToHome);
+detailsMapBtn?.addEventListener('click', () => {
+  setDetailsPanelState(isPhoneDetailsLayout() ? 'peek' : 'hidden');
+});
+mapDetailsBtn?.addEventListener('click', () => {
+  if (resultCard.hidden) {
+    return;
+  }
+  openDetailsPanel();
+});
+panelFollowBtn?.addEventListener('click', () => {
+  setBusFollowEnabled(true);
+  if (isCurrentBusLive() && liveBusMarker) {
+    panMapToLiveBus(true);
+  }
+});
+window.addEventListener('resize', () => {
+  if (resultCard.hidden) {
+    return;
+  }
+  if (isPhoneDetailsLayout()) {
+    document.body.classList.remove('details-panel-hidden');
+    if (!resultCard.dataset.snapState) {
+      resultCard.dataset.snapState = 'peek';
+    }
+  }
+  window.requestAnimationFrame(() => {
+    map?.invalidateSize({ pan: false });
+    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+      panMapToLiveBus(true);
+    }
+  });
+});
 moreMenuBtn?.addEventListener('click', () => {
   setBottomNavActive('more');
   moreMenu?.showModal();
@@ -3940,7 +4191,8 @@ window.addEventListener('languagechange', () => {
       refreshLiveMapMarkers();
     }
     if (!resultCard.hidden && currentBusNumber) {
-      resultTitle.textContent = `${t('busNumber')} ${currentBusNumber}`;
+      resultTitle.textContent = currentBusNumber;
+      setBusTypeBadges(currentBusType);
       const currentBus = currentDisplayedBusRecord;
       if (currentBus) {
         resultRoute.textContent =
@@ -4032,6 +4284,7 @@ window.addEventListener('languagechange', () => {
 
     renderLiveDirection(liveDirection.classList.contains('is-moving'));
     renderLiveMovementStatus();
+    renderPanelLiveStatus();
     const capacityKey = capacityStatus.dataset.capacityStatus;
     renderCapacityStatus(capacityKey && capacityKey !== 'unreported' ? capacityKey : null);
     if (liveBusUpdatedAt) {
