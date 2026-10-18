@@ -4,6 +4,10 @@
     en: {
       sharingDisclaimerTitle: 'A quick note about location sharing',
       homeLabel: 'APSRTC Live home',
+      more: 'More',
+      shareMyBusLocation: 'Share my bus location',
+      closeDetails: 'Close details',
+      closeMenu: 'Close menu',
       toggleDarkMode: 'Toggle dark mode',
       disclaimerOptional: 'Location sharing is optional and starts only when you tap “I’m on this bus”.',
       disclaimerPermission: 'Your browser may ask you to allow location access; you may need to enable it in your browser settings.',
@@ -220,6 +224,10 @@
     te: {
       sharingDisclaimerTitle: 'స్థానాన్ని పంచుకోవడం గురించి చిన్న గమనిక',
       homeLabel: 'APSRTC Live హోమ్',
+      more: 'మరిన్ని',
+      shareMyBusLocation: 'నా బస్సు స్థానాన్ని షేర్ చేయండి',
+      closeDetails: 'వివరాలు మూసివేయండి',
+      closeMenu: 'మెనూను మూసివేయండి',
       toggleDarkMode: 'డార్క్ మోడ్ మార్చండి',
       disclaimerOptional: 'స్థానాన్ని పంచుకోవడం మీ ఇష్టం. “నేను ఈ బస్సులో ఉన్నాను” నొక్కినప్పుడే ఇది మొదలవుతుంది.',
       disclaimerPermission: 'మీ స్థానం కోసం అనుమతి అడగవచ్చు. అవసరమైతే బ్రౌజర్ సెట్టింగ్స్‌లో అనుమతించండి.',

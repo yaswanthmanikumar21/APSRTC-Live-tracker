@@ -70,19 +70,21 @@
               <img class="brand-logo" src="Images/logo-icon.png" alt="" width="40" height="40" />
               <span>APSRTC Live</span>
             </button>
-            <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false" data-i18n-aria-label="toggleDarkMode">
-              <svg class="theme-toggle__sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <circle cx="12" cy="12" r="4"></circle>
-                <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path>
-              </svg>
-              <svg class="theme-toggle__moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"></path>
-              </svg>
-            </button>
-            <button id="languageToggle" class="language-toggle" type="button" aria-label="Change language: English" aria-pressed="false">EN | తెలుగు</button>
+            <span class="header-actions">
+              <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false" data-i18n-aria-label="toggleDarkMode">
+                <svg class="theme-toggle__sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="12" cy="12" r="4"></circle>
+                  <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path>
+                </svg>
+                <svg class="theme-toggle__moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"></path>
+                </svg>
+              </button>
+              <button id="languageToggle" class="language-toggle" type="button" aria-label="Change language: English" aria-pressed="false">EN | తెలుగు</button>
+              <button id="moreMenuBtn" class="more-menu-button" type="button" aria-haspopup="dialog" aria-controls="moreMenu" data-i18n="more">More</button>
+            </span>
           </h1>
           <p class="tagline" data-i18n="tagline">Know where your bus is.</p>
-          <p id="liveBusCounter" class="live-bus-counter" aria-live="polite">0 buses live now</p>
 
           <form id="searchForm" class="search-form">
             <label class="sr-only" for="busNumber" data-i18n="busNumberLabel">Bus number</label>
@@ -94,13 +96,7 @@
               data-i18n-placeholder="busNumberPlaceholder"
               autocomplete="off"
             />
-            <button type="submit" data-i18n="findBus">Find Bus</button>
-            <button id="findNearbyBtn" type="button" class="nearby-button">
-              <span data-i18n="useMyLocation">📍 Use my location</span>
-            </button>
-            <button id="toggleAddBusBtn" type="button" class="secondary-button">
-              <span data-i18n="addNewBus">Add new bus</span>
-            </button>
+            <button type="submit" class="secondary-button" data-i18n="findBus">Find Bus</button>
           </form>
 
           <section
@@ -114,30 +110,18 @@
             <div id="recentSearchChips" class="recent-search-chips"></div>
           </section>
 
-          <section id="addBusSection" class="add-bus-section" hidden>
-            <h3 data-i18n="addBusHeading">Add a new bus</h3>
-            <form id="addBusForm" class="add-bus-form">
-              <label for="newBusNumber" data-i18n="busNumberRequired">Bus number *</label>
-              <input id="newBusNumber" name="newBusNumber" type="text" placeholder="28" required data-i18n-placeholder="sampleBusNumber" />
+          <button id="shareMyBusLocationBtn" class="share-my-bus-button" type="button" data-i18n="shareMyBusLocation">Share my bus location</button>
 
-              <label for="newBusRoute" data-i18n="routeRequired">Route *</label>
-              <input id="newBusRoute" name="newBusRoute" type="text" placeholder="RK Beach - Simhachalam" required data-i18n-placeholder="sampleRoute" />
-
-              <label for="newBusStart" data-i18n="startingPointRequired">Starting point *</label>
-              <input id="newBusStart" name="newBusStart" type="text" placeholder="RK Beach" required data-i18n-placeholder="sampleStartingPoint" />
-
-              <label for="newBusDestination" data-i18n="destinationRequired">Destination *</label>
-              <input id="newBusDestination" name="newBusDestination" type="text" placeholder="Simhachalam" required data-i18n-placeholder="sampleDestination" />
-
-              <label for="newBusStops" data-i18n="stopsCommaSeparated">Stops (comma-separated)</label>
-              <input id="newBusStops" name="newBusStops" type="text" placeholder="RK Beach, Waltair, Siripuram" data-i18n-placeholder="sampleStops" />
-
-              <button type="submit" class="primary-button" data-i18n="createBus">Create bus</button>
-            </form>
-            <p id="addBusMessage" class="form-message"></p>
+          <section class="live-now-section" aria-labelledby="liveNowHeading">
+            <div class="live-now-heading">
+              <h2 id="liveNowHeading" data-i18n="liveNow">Live now</h2>
+              <p id="liveBusCounter" class="live-bus-counter" aria-live="polite">0 buses live now</p>
+            </div>
+            <div id="liveNowList" class="live-now-list" aria-live="polite"></div>
           </section>
 
           <div id="resultCard" class="result-card" hidden>
+            <div class="details-drag-handle" aria-hidden="true"><span></span></div>
             <div class="result-header">
               <div class="result-title-group">
                 <button id="detailsBackBtn" class="details-back-button" type="button" hidden>
@@ -153,7 +137,21 @@
                   <span data-i18n="share">🔗 Share</span>
                 </button>
                 <span id="copyBusLinkMessage" class="copy-link-message" aria-live="polite"></span>
+                <button id="detailsCloseBtn" class="details-close-button" type="button" aria-label="Close details" data-i18n-aria-label="closeDetails">×</button>
               </div>
+            </div>
+            <div class="result-summary">
+              <dl class="detail-list result-summary-route">
+                <div class="detail-item">
+                  <dt data-i18n="route">Route</dt>
+                  <dd id="resultRoute">-</dd>
+                </div>
+              </dl>
+              <div class="result-summary-status">
+                <span class="summary-status-label" data-i18n="trackingStatus">Tracking status</span>
+                <span id="resultStatus">-</span>
+              </div>
+              <span id="liveLocationMessage" class="result-live-message"></span>
             </div>
 
             <div id="activeSessionsContainer" class="active-sessions-container" hidden>
@@ -176,10 +174,6 @@
                     <dd id="resultNumber">-</dd>
                   </div>
                   <div class="detail-item">
-                    <dt data-i18n="route">Route</dt>
-                    <dd id="resultRoute">-</dd>
-                  </div>
-                  <div class="detail-item">
                     <dt data-i18n="startingPoint">Starting point</dt>
                     <dd id="resultStart">-</dd>
                   </div>
@@ -192,23 +186,10 @@
                     <dd><ul id="resultStops" class="stop-list"></ul></dd>
                   </div>
                   <div class="detail-item">
-                    <dt data-i18n="trackingStatus">Tracking status</dt>
-                    <dd id="resultStatus">-</dd>
-                  </div>
-                  <div class="detail-item">
                     <dt data-i18n="busSession">Bus session</dt>
                     <dd id="resultSessionCode">-</dd>
                   </div>
                 </dl>
-                <a
-                  id="reportIssueLink"
-                  class="report-issue-link"
-                  href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=apsrtclive@gmail.com&amp;su=APSRTC%20Live%20Issue"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span data-i18n="reportIssue">🚩 Report an issue</span>
-                </a>
               </section>
 
               <section id="livePanel" class="tab-panel" role="tabpanel" aria-labelledby="liveTab" data-result-panel="live" hidden>
@@ -248,16 +229,6 @@
                     </div>
                   </dl>
                 </section>
-                <div id="mapWrapper" class="map-wrapper" hidden>
-                  <p class="map-note">
-                    <span id="liveLocationMessage"></span>
-                    <span id="liveLocationWarning" class="map-note__warning" hidden data-i18n="locationOutdated">
-                      ⚠️ Location may be outdated
-                    </span>
-                  </p>
-                  <p id="liveLocationStaleWarning" class="map-stale-warning" hidden></p>
-                  <div id="map" class="map-container" aria-label="Bus map location" data-i18n-aria-label="mapLocation"></div>
-                </div>
               </section>
 
               <section id="capacityPanelTab" class="tab-panel" role="tabpanel" aria-labelledby="capacityTab" data-result-panel="capacity" hidden>
@@ -344,9 +315,7 @@
             </div>
           </div>
 
-          <p id="searchMessage" class="search-message">
-            <span data-i18n="searchPrompt">Search for a bus number to view live route details.</span>
-          </p>
+          <p id="searchMessage" class="search-message"></p>
 
           <section id="searchResultsContainer" class="active-sessions-container" hidden>
             <h3 data-i18n="searchResults">Search results</h3>
@@ -356,6 +325,16 @@
         </div>
       </section>
 
+      <div id="mapWrapper" class="map-wrapper" hidden>
+        <p class="map-note">
+          <span id="liveLocationWarning" class="map-note__warning" hidden data-i18n="locationOutdated">
+            ⚠️ Location may be outdated
+          </span>
+        </p>
+        <p id="liveLocationStaleWarning" class="map-stale-warning" hidden></p>
+        <div id="map" class="map-container" aria-label="Bus map location" data-i18n-aria-label="mapLocation"></div>
+      </div>
+
       <section class="catalog-section" aria-labelledby="busCatalogHeading">
         <div class="section-header">
           <h2 id="busCatalogHeading" data-i18n="availableBuses">Available buses</h2>
@@ -364,6 +343,50 @@
         <div id="busList" class="bus-list"></div>
       </section>
     </main>
+
+    <dialog id="moreMenu" class="more-sheet" aria-labelledby="moreMenuTitle">
+      <section class="more-sheet__panel">
+        <div class="details-drag-handle" aria-hidden="true"><span></span></div>
+        <header class="more-sheet__header">
+          <h2 id="moreMenuTitle" data-i18n="more">More</h2>
+          <button id="moreMenuCloseBtn" class="details-close-button" type="button" aria-label="Close menu" data-i18n-aria-label="closeMenu">×</button>
+        </header>
+        <div id="moreMenuContent" class="more-menu-content">
+          <button id="findNearbyBtn" type="button" class="secondary-button">
+            <span data-i18n="useMyLocation">📍 Use my location</span>
+          </button>
+          <button id="toggleAddBusBtn" type="button" class="secondary-button">
+            <span data-i18n="addNewBus">Add new bus</span>
+          </button>
+          <button id="moreDisclaimerBtn" type="button" class="secondary-button" data-i18n="disclaimer">Disclaimer</button>
+          <a
+            id="reportIssueLink"
+            class="report-issue-link"
+            href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=apsrtclive@gmail.com&amp;su=APSRTC%20Live%20Issue"
+            target="_blank"
+            rel="noopener noreferrer"
+          ><span data-i18n="reportIssue">🚩 Report an issue</span></a>
+          <section id="addBusSection" class="add-bus-section" hidden>
+            <h3 data-i18n="addBusHeading">Add a new bus</h3>
+            <form id="addBusForm" class="add-bus-form">
+              <label for="newBusNumber" data-i18n="busNumberRequired">Bus number *</label>
+              <input id="newBusNumber" name="newBusNumber" type="text" placeholder="28" required data-i18n-placeholder="sampleBusNumber" />
+              <label for="newBusRoute" data-i18n="routeRequired">Route *</label>
+              <input id="newBusRoute" name="newBusRoute" type="text" placeholder="RK Beach - Simhachalam" required data-i18n-placeholder="sampleRoute" />
+              <label for="newBusStart" data-i18n="startingPointRequired">Starting point *</label>
+              <input id="newBusStart" name="newBusStart" type="text" placeholder="RK Beach" required data-i18n-placeholder="sampleStartingPoint" />
+              <label for="newBusDestination" data-i18n="destinationRequired">Destination *</label>
+              <input id="newBusDestination" name="newBusDestination" type="text" placeholder="Simhachalam" required data-i18n-placeholder="sampleDestination" />
+              <label for="newBusStops" data-i18n="stopsCommaSeparated">Stops (comma-separated)</label>
+              <input id="newBusStops" name="newBusStops" type="text" placeholder="RK Beach, Waltair, Siripuram" data-i18n-placeholder="sampleStops" />
+              <button type="submit" class="primary-button" data-i18n="createBus">Create bus</button>
+            </form>
+            <p id="addBusMessage" class="form-message"></p>
+          </section>
+          <div id="moreInstallSlot"></div>
+        </div>
+      </section>
+    </dialog>
 
     <dialog
       id="busShareSheet"

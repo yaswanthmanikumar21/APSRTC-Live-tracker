@@ -10,7 +10,14 @@ let toastSequence = 0;
 let detailsReturnView = { type: 'catalog' };
 
 const busList = document.getElementById('busList');
+const liveNowList = document.getElementById('liveNowList');
 const homeLink = document.getElementById('homeLink');
+const moreMenu = document.getElementById('moreMenu');
+const moreMenuBtn = document.getElementById('moreMenuBtn');
+const moreMenuCloseBtn = document.getElementById('moreMenuCloseBtn');
+const moreDisclaimerBtn = document.getElementById('moreDisclaimerBtn');
+const moreInstallSlot = document.getElementById('moreInstallSlot');
+const shareMyBusLocationBtn = document.getElementById('shareMyBusLocationBtn');
 const searchForm = document.getElementById('searchForm');
 const recentSearches = document.getElementById('recentSearches');
 const recentSearchChips = document.getElementById('recentSearchChips');
@@ -543,6 +550,7 @@ function renderBusCards() {
   window.UIMotion?.updateLiveCount(activeCatalogBusNumbers.size);
 
   const busesToRender = getActiveBusCatalog();
+  renderLiveNowCards(busesToRender);
 
   if (!busesToRender.length) {
     const emptyCard = document.createElement('article');
@@ -604,6 +612,43 @@ function renderBusCards() {
   window.UIMotion?.updateLiveCount(activeCatalogBusNumbers.size);
 }
 
+function renderLiveNowCards(buses) {
+  if (!liveNowList) {
+    return;
+  }
+
+  liveNowList.replaceChildren();
+  const liveBuses = (Array.isArray(buses) ? buses : []).filter((bus) => activeCatalogBusNumbers.has(
+    normalizeBusNumberKey(bus.busNumber)
+  ));
+
+  if (!liveBuses.length) {
+    const empty = document.createElement('p');
+    empty.className = 'live-now-empty';
+    empty.textContent = t('noActiveBuses');
+    liveNowList.appendChild(empty);
+  }
+
+  liveBuses.forEach((bus) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'live-now-card';
+    card.dataset.busNumber = bus.busNumber;
+    const number = document.createElement('span');
+    number.className = 'live-now-card__number';
+    const dot = document.createElement('span');
+    dot.className = 'bus-live-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    number.append(dot, document.createTextNode(bus.busNumber));
+
+    const route = document.createElement('span');
+    route.className = 'live-now-card__route';
+    route.textContent = bus.routeName;
+    card.append(number, route);
+    liveNowList.appendChild(card);
+  });
+}
+
 async function loadActiveCatalogBusNumbers() {
   try {
     const { data, error } =
@@ -614,6 +659,7 @@ async function loadActiveCatalogBusNumbers() {
       activeCatalogBusNumbers = new Set();
       catalogLiveStatusAvailable = false;
       window.UIMotion?.updateLiveCount(0);
+      renderLiveNowCards(getActiveBusCatalog());
       return;
     }
 
@@ -622,11 +668,13 @@ async function loadActiveCatalogBusNumbers() {
     );
     catalogLiveStatusAvailable = true;
     window.UIMotion?.updateLiveCount(activeCatalogBusNumbers.size);
+    renderLiveNowCards(getActiveBusCatalog());
   } catch (error) {
     console.error('Failed to load catalog live statuses', error);
     activeCatalogBusNumbers = new Set();
     catalogLiveStatusAvailable = false;
     window.UIMotion?.updateLiveCount(0);
+    renderLiveNowCards(getActiveBusCatalog());
   }
 }
 
@@ -3091,6 +3139,55 @@ window.addEventListener('beforeunload', () => {
 
 homeLink.addEventListener('click', returnToHome);
 detailsBackBtn.addEventListener('click', returnFromBusDetails);
+document.getElementById('detailsCloseBtn')?.addEventListener('click', returnToHome);
+moreMenuBtn?.addEventListener('click', () => moreMenu?.showModal());
+moreMenuCloseBtn?.addEventListener('click', () => moreMenu?.close());
+moreMenu?.addEventListener('click', (event) => {
+  if (event.target === moreMenu) {
+    moreMenu.close();
+  }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !resultCard.hidden && !document.querySelector('dialog[open]')) {
+    returnToHome();
+  }
+});
+moreDisclaimerBtn?.addEventListener('click', () => {
+  moreMenu?.close();
+  sharingDisclaimer?.showModal();
+});
+shareMyBusLocationBtn?.addEventListener('click', () => {
+  document.getElementById('busNumber')?.focus();
+  document.getElementById('busNumber')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center'
+  });
+});
+liveNowList?.addEventListener('click', (event) => {
+  const card = event.target.closest('[data-bus-number]');
+  if (!card) {
+    return;
+  }
+  const input = document.getElementById('busNumber');
+  input.value = card.dataset.busNumber;
+  searchForm.requestSubmit();
+});
+findNearbyBtn.addEventListener('click', () => moreMenu?.close());
+
+const heroCopy = document.querySelector('.hero-copy');
+if (heroCopy && moreInstallSlot) {
+  const moveInstallControls = () => {
+    const controls = heroCopy.querySelector('.pwa-install-controls');
+    if (controls && controls.parentElement !== moreInstallSlot) {
+      moreInstallSlot.appendChild(controls);
+    }
+  };
+  moveInstallControls();
+  new MutationObserver(moveInstallControls).observe(heroCopy, {
+    childList: true,
+    subtree: true
+  });
+}
 
 async function resumeSavedShareSession(session) {
   if (!window.supabaseHelpers) {
