@@ -13,6 +13,8 @@ let favoriteBusNumbers = new Set();
 let shareCelebrationShown = false;
 let toastSequence = 0;
 let detailsReturnView = { type: 'catalog' };
+let pendingBusDetailsOpen = null;
+let lastInputSearchAt = 0;
 
 const busList = document.getElementById('busList');
 const liveNowList = document.getElementById('liveNowList');
@@ -50,6 +52,7 @@ const connectionError = document.getElementById('connectionError');
 const toastContainer = document.getElementById('toastContainer');
 const reportIssueLink = document.getElementById('reportIssueLink');
 const resultCard = document.getElementById('resultCard');
+const detailsContent = document.getElementById('detailsContent');
 const detailsBackBtn = document.getElementById('detailsBackBtn');
 const resultTitle = document.getElementById('resultTitle');
 const copyBusLinkBtn = document.getElementById('copyBusLinkBtn');
@@ -108,6 +111,7 @@ let liveCatalogRefreshInterval = null;
 let followLiveBus = true;
 let followMapInitializedForBus = false;
 let initialBusFlyInProgress = false;
+let deferredInitialBusFlyIn = false;
 let currentLiveBusExpiresAt = null;
 let mapUserGestureAt = 0;
 let programmaticMapMove = false;
@@ -115,6 +119,14 @@ let programmaticMapMoveTimer = null;
 let lastFollowPanAt = 0;
 let panelDragStartY = null;
 let panelDragHandled = false;
+let panelDragStartOffset = 0;
+let panelDragPointerId = null;
+let panelDragSamples = [];
+let panelDragFrame = null;
+let panelSnapTimer = null;
+let panelDragIsContentScroll = false;
+let detailsHistoryEntry = false;
+let detailsHistoryEntryId = null;
 let previousLiveBusPosition = null;
 let liveBusTrail = [];
 let liveBusTrailSegments = [];
@@ -253,26 +265,105 @@ function setDetailsPanelState(state) {
   }
 
   if (!isPhoneDetailsLayout()) {
+    resultCard.style.removeProperty('transform');
     document.body.classList.toggle('details-panel-hidden', state === 'hidden');
   } else {
     document.body.classList.remove('details-panel-hidden');
-    resultCard.dataset.snapState = ['peek', 'half', 'full'].includes(state)
+    const snapState = ['peek', 'half', 'full'].includes(state)
       ? state
       : 'peek';
+    resultCard.dataset.snapState = snapState;
+    resultCard.style.transform =
+      `translate3d(0, ${getDetailsPanelOffset(snapState)}px, 0)`;
   }
-  window.requestAnimationFrame(() => {
-    map?.invalidateSize({ pan: false });
-    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
-      panMapToLiveBus(true);
-    }
-  });
+  resultCard.classList.add('sheet-transition');
+  if (prefersReducedMotion()) {
+    resultCard.classList.remove('sheet-transition');
+    scheduleMapAfterPanelSnap();
+  }
 }
 
-function openDetailsPanel() {
-  document.body.classList.add('details-panel-open');
-  document.body.classList.remove('details-panel-hidden');
-  setDetailsPanelState('peek');
-  window.requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
+function getDetailsPanelHeight() {
+  return window.innerHeight;
+}
+
+function getDetailsPanelOffset(state) {
+  const height = getDetailsPanelHeight();
+  if (state === 'full') {
+    return 0;
+  }
+  if (state === 'half') {
+    return height * 0.45;
+  }
+  return Math.max(0, height - 150);
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
+function scheduleMapAfterPanelSnap() {
+  window.clearTimeout(panelSnapTimer);
+  panelSnapTimer = window.setTimeout(() => {
+    map?.invalidateSize({ pan: false });
+    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+      if (!followMapInitializedForBus || deferredInitialBusFlyIn) {
+        startInitialBusFlyTo(false);
+      } else {
+        panMapToLiveBus(true);
+      }
+    }
+  }, 150);
+}
+
+function pushDetailsHistoryEntry() {
+  if (detailsHistoryEntry || !window.history?.pushState) {
+    return;
+  }
+  detailsHistoryEntryId = `details-${Date.now()}-${Math.random()}`;
+  window.history.pushState(
+    {
+      ...window.history.state,
+      detailsPanel: true,
+      detailsPanelEntryId: detailsHistoryEntryId
+    },
+    '',
+    window.location.href
+  );
+  detailsHistoryEntry = true;
+}
+
+function openDetailsPanel(initialState = 'half') {
+  pushDetailsHistoryEntry();
+  if (isPhoneDetailsLayout()) {
+    document.body.classList.add('details-panel-open');
+    document.body.classList.remove('details-panel-hidden');
+    resultCard.dataset.snapState = initialState;
+    resultCard.style.transform =
+      `translate3d(0, ${getDetailsPanelOffset('full')}px, 0)`;
+    resultCard.classList.remove('sheet-transition');
+    resultCard.classList.add('sheet-opening');
+    window.requestAnimationFrame(() => {
+      resultCard.style.transform =
+        `translate3d(0, ${getDetailsPanelOffset(initialState)}px, 0)`;
+      if (prefersReducedMotion()) {
+        resultCard.classList.remove('sheet-opening');
+        scheduleMapAfterPanelSnap();
+      }
+    });
+  } else {
+    document.body.classList.add('details-panel-open', 'details-panel-hidden');
+    resultCard.style.removeProperty('transform');
+    resultCard.classList.remove('sheet-transition');
+    resultCard.classList.add('sheet-opening');
+    window.requestAnimationFrame(() => {
+      document.body.classList.remove('details-panel-hidden');
+      if (prefersReducedMotion()) {
+        resultCard.classList.remove('sheet-opening');
+        scheduleMapAfterPanelSnap();
+      }
+    });
+  }
 }
 
 function advanceDetailsPanelState(direction = 1) {
@@ -286,7 +377,7 @@ function advanceDetailsPanelState(direction = 1) {
     states.indexOf(resultCard.dataset.snapState || 'peek')
   );
   const nextIndex = direction > 0
-    ? (currentIndex + 1) % states.length
+    ? (currentIndex === states.length - 1 ? currentIndex - 1 : currentIndex + 1)
     : Math.max(0, currentIndex - 1);
   setDetailsPanelState(states[nextIndex]);
 }
@@ -384,6 +475,8 @@ function returnToHome() {
   searchInput.value = '';
 
   resultCard.hidden = true;
+  detailsHistoryEntry = false;
+  detailsHistoryEntryId = null;
   document.body.classList.remove(
     'details-panel-open',
     'details-panel-hidden'
@@ -419,8 +512,12 @@ function returnToHome() {
 
   const url = new URL(window.location.href);
   url.searchParams.delete('bus');
-  window.history.pushState(
-    {},
+  window.history.replaceState(
+    {
+      ...window.history.state,
+      detailsPanel: false,
+      detailsPanelEntryId: null
+    },
     '',
     `${url.pathname}${url.search}${url.hash}`
   );
@@ -450,13 +547,8 @@ function returnFromBusDetails() {
   currentDisplayedBusRecord = null;
   favoriteBusBtn.hidden = true;
 
-  const url = new URL(window.location.href);
-  url.searchParams.delete('bus');
-  window.history.pushState(
-    {},
-    '',
-    `${url.pathname}${url.search}${url.hash}`
-  );
+  detailsHistoryEntry = false;
+  detailsHistoryEntryId = null;
 
   if (returnView.type === 'searchResults') {
     nearbySearchResults = Boolean(returnView.nearby);
@@ -561,25 +653,12 @@ function initMap() {
     }
   });
   resultCard.addEventListener('transitionend', (event) => {
-    if (event.propertyName !== 'transform') {
+    if (event.target !== resultCard || event.propertyName !== 'transform') {
       return;
     }
-    map?.invalidateSize({ pan: false });
-    if (
-      followLiveBus &&
-      initialBusFlyInProgress
-    ) {
-      return;
-    }
-    if (
-      followLiveBus &&
-      followMapInitializedForBus &&
-      map?.getZoom() < 16
-    ) {
-      return;
-    }
-    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
-      panMapToLiveBus(true);
+    resultCard.classList.remove('sheet-transition', 'sheet-opening');
+    if (panelDragPointerId === null) {
+      scheduleMapAfterPanelSnap();
     }
   });
 
@@ -593,30 +672,168 @@ function initMap() {
     });
   }
 
-  detailsDragHandle?.addEventListener('click', () => {
-    if (panelDragHandled) {
+  const samplePanelPointer = (event) => {
+    panelDragSamples.push({ y: event.clientY, time: event.timeStamp });
+    panelDragSamples = panelDragSamples.filter(
+      (sample) => event.timeStamp - sample.time <= 120
+    );
+  };
+  const beginPanelDrag = (event) => {
+    if (
+      resultCard.hidden ||
+      !isPhoneDetailsLayout() ||
+      event.button > 0 ||
+      (
+        event.target.closest('button, input, select, textarea, summary, a') &&
+        !event.target.closest('.details-drag-handle')
+      )
+    ) {
+      return;
+    }
+    const isHeaderDrag = event.target.closest(
+      '.details-drag-handle, .result-header'
+    );
+    const isFull = resultCard.dataset.snapState === 'full';
+    if (!isHeaderDrag && isFull && detailsContent.scrollTop > 0) {
+      return;
+    }
+    panelDragPointerId = event.pointerId;
+    panelDragStartY = event.clientY;
+    panelDragStartOffset = getDetailsPanelOffset(
+      resultCard.dataset.snapState || 'peek'
+    );
+    panelDragSamples = [];
+    panelDragIsContentScroll = false;
+    samplePanelPointer(event);
+    panelDragHandled = false;
+    resultCard.classList.remove('sheet-transition', 'sheet-opening');
+    (isHeaderDrag ? event.target.closest(
+      '.details-drag-handle, .result-header'
+    ) : resultCard).setPointerCapture(event.pointerId);
+    if (!isHeaderDrag && isFull && detailsContent.scrollTop === 0) {
+      detailsContent.style.touchAction = 'none';
+    }
+  };
+  const movePanelDrag = (event) => {
+    if (event.pointerId !== panelDragPointerId || panelDragStartY === null) {
+      return;
+    }
+    samplePanelPointer(event);
+    const delta = event.clientY - panelDragStartY;
+    if (
+      resultCard.dataset.snapState === 'full' &&
+      !event.target.closest('.details-drag-handle, .result-header') &&
+      delta < -8
+    ) {
+      panelDragIsContentScroll = true;
+    }
+    if (panelDragIsContentScroll && delta < 0) {
+      event.preventDefault();
+      detailsContent.scrollTop = Math.max(0, -delta);
+      return;
+    }
+    panelDragIsContentScroll = false;
+    event.preventDefault();
+    const fullHeight = getDetailsPanelHeight();
+    const rawOffset = panelDragStartOffset + delta;
+    const offset = rawOffset < 0 ? rawOffset * 0.2 : Math.min(
+      rawOffset,
+      fullHeight
+    );
+    panelDragHandled ||= Math.abs(delta) > 8;
+    if (panelDragFrame !== null) {
+      cancelAnimationFrame(panelDragFrame);
+    }
+    panelDragFrame = requestAnimationFrame(() => {
+      resultCard.style.transform = `translate3d(0, ${offset}px, 0)`;
+      panelDragFrame = null;
+    });
+  };
+  const finishPanelDrag = (event, cancelled = false) => {
+    if (event.pointerId !== panelDragPointerId || panelDragStartY === null) {
+      return;
+    }
+    samplePanelPointer(event);
+    const delta = event.clientY - panelDragStartY;
+    const samples = panelDragSamples;
+    const first = samples[0];
+    const last = samples[samples.length - 1];
+    const velocity = first && last && last.time > first.time
+      ? (last.y - first.y) / (last.time - first.time)
+      : 0;
+    const currentIndex = ['peek', 'half', 'full'].indexOf(
+      resultCard.dataset.snapState || 'peek'
+    );
+    panelDragStartY = null;
+    panelDragPointerId = null;
+    detailsContent.style.touchAction = '';
+    if (panelDragFrame !== null) {
+      cancelAnimationFrame(panelDragFrame);
+      panelDragFrame = null;
+    }
+    if (panelDragIsContentScroll && delta < 0) {
+      panelDragIsContentScroll = false;
+      panelDragSamples = [];
+      return;
+    }
+    panelDragIsContentScroll = false;
+    if (!cancelled && currentIndex === 0 && (delta > 80 || velocity > 0.55)) {
+      requestCloseDetailsPanel();
+      return;
+    }
+
+    let nextIndex = currentIndex;
+    if (!cancelled && Math.abs(velocity) > 0.55) {
+      nextIndex = velocity < 0
+        ? Math.min(2, currentIndex + 1)
+        : Math.max(0, currentIndex - 1);
+    } else if (!cancelled) {
+      const offset = panelDragStartOffset + delta;
+      const states = ['peek', 'half', 'full'];
+      nextIndex = states.reduce((nearest, state, index) => (
+        Math.abs(getDetailsPanelOffset(state) - offset) <
+          Math.abs(getDetailsPanelOffset(states[nearest]) - offset)
+          ? index
+          : nearest
+      ), 0);
+    }
+    resultCard.classList.add('sheet-transition');
+    setDetailsPanelState(['peek', 'half', 'full'][nextIndex]);
+    panelDragSamples = [];
+  };
+
+  resultCard.addEventListener('pointerdown', beginPanelDrag);
+  resultCard.addEventListener('pointermove', movePanelDrag);
+  resultCard.addEventListener('pointerup', (event) => finishPanelDrag(event));
+  resultCard.addEventListener('pointercancel', (event) =>
+    finishPanelDrag(event, true)
+  );
+  resultCard.addEventListener('click', (event) => {
+    if (panelDragHandled && event.target.closest('.details-drag-handle')) {
+      event.preventDefault();
+      event.stopPropagation();
       panelDragHandled = false;
       return;
     }
-    advanceDetailsPanelState();
-  });
-  detailsDragHandle?.addEventListener('pointerdown', (event) => {
-    panelDragStartY = event.clientY;
-    panelDragHandled = false;
-    detailsDragHandle.setPointerCapture(event.pointerId);
-  });
-  detailsDragHandle?.addEventListener('pointerup', (event) => {
-    if (panelDragStartY === null) {
-      return;
+    if (event.target.closest('.details-drag-handle')) {
+      advanceDetailsPanelState();
     }
-    const movement = event.clientY - panelDragStartY;
-    panelDragStartY = null;
-    if (Math.abs(movement) < 24) {
-      return;
-    }
-    panelDragHandled = true;
-    advanceDetailsPanelState(movement < 0 ? 1 : -1);
   });
+}
+
+function requestCloseDetailsPanel() {
+  if (detailsHistoryEntry && window.history.length > 1) {
+    window.history.back();
+    window.setTimeout(() => {
+      if (detailsHistoryEntry && !resultCard.hidden) {
+        detailsHistoryEntry = false;
+        detailsHistoryEntryId = null;
+        returnFromBusDetails();
+      }
+    }, 300);
+  } else {
+    returnFromBusDetails();
+  }
 }
 
 function isCurrentBusLive() {
@@ -633,7 +850,15 @@ function setBusFollowEnabled(enabled) {
 }
 
 function panMapToLiveBus(force = false) {
-  if (!followLiveBus || !isCurrentBusLive() || !liveBusMarker || !map) {
+  if (
+    !followLiveBus ||
+    !isCurrentBusLive() ||
+    !liveBusMarker ||
+    !map ||
+    panelDragPointerId !== null ||
+    resultCard.classList.contains('sheet-transition') ||
+    resultCard.classList.contains('sheet-opening')
+  ) {
     return;
   }
   if (initialBusFlyInProgress) {
@@ -654,6 +879,39 @@ function panMapToLiveBus(force = false) {
     animate: !reducedMotion,
     duration: 1
   });
+}
+
+function startInitialBusFlyTo(invalidateMapSize = true) {
+  if (!map || !followLiveBus || !isCurrentBusLive() || !liveBusMarker) {
+    return;
+  }
+  if (
+    panelDragPointerId !== null ||
+    resultCard.classList.contains('sheet-transition') ||
+    resultCard.classList.contains('sheet-opening')
+  ) {
+    deferredInitialBusFlyIn = true;
+    return;
+  }
+
+  if (invalidateMapSize) {
+    map.invalidateSize({ pan: false });
+  }
+  const reducedMotion = prefersReducedMotion();
+  markProgrammaticMapMove();
+  initialBusFlyInProgress = true;
+  deferredInitialBusFlyIn = false;
+  map.once('moveend', () => {
+    initialBusFlyInProgress = false;
+    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
+      panMapToLiveBus(true);
+    }
+  });
+  map.flyTo(getBusMapTarget(liveBusMarker.getLatLng()), 16, {
+    animate: !reducedMotion,
+    duration: 1
+  });
+  followMapInitializedForBus = true;
 }
 
 function markProgrammaticMapMove() {
@@ -1327,8 +1585,9 @@ function updateBusSessionUrl(busCode) {
   if (!busCode || !window.history?.pushState) {
     return;
   }
-  window.history.pushState(
-    { busCode },
+  const method = detailsHistoryEntry ? 'replaceState' : 'pushState';
+  window.history[method](
+    { ...window.history.state, busCode, detailsPanel: detailsHistoryEntry },
     '',
     getBusSessionUrl(busCode)
   );
@@ -1947,6 +2206,7 @@ function selectActiveBusSession(busNumber, busCode, busType = null) {
   setBusFollowEnabled(true);
   followMapInitializedForBus = false;
   initialBusFlyInProgress = false;
+  deferredInitialBusFlyIn = false;
   currentBusSessionCode = busCode;
   setResultTab('live');
   resultTitle.textContent = busNumber;
@@ -3068,33 +3328,7 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   }
 
   if (map && followLiveBus && !followMapInitializedForBus) {
-    map.invalidateSize({ pan: false });
-    const reducedMotion = window.matchMedia?.(
-      '(prefers-reduced-motion: reduce)'
-    ).matches;
-    markProgrammaticMapMove();
-    initialBusFlyInProgress = true;
-    map.once('moveend', () => {
-      initialBusFlyInProgress = false;
-      if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
-        panMapToLiveBus(true);
-      }
-    });
-    map.flyTo(getBusMapTarget(currentPosition), 16, {
-      animate: !reducedMotion,
-      duration: 1
-    });
-    followMapInitializedForBus = true;
-  } else if (map && !markerAlreadyExists && followLiveBus) {
-    map.invalidateSize({ pan: false });
-    const reducedMotion = window.matchMedia?.(
-      '(prefers-reduced-motion: reduce)'
-    ).matches;
-    markProgrammaticMapMove();
-    map.panTo(getBusMapTarget(currentPosition), {
-      animate: !reducedMotion,
-      duration: 1
-    });
+    startInitialBusFlyTo();
   }
 }
 
@@ -3106,6 +3340,7 @@ async function startRealtimeForBus(busNumber, busCode = null) {
   currentLiveBusExpiresAt = null;
   followMapInitializedForBus = false;
   initialBusFlyInProgress = false;
+  deferredInitialBusFlyIn = false;
   setBusFollowEnabled(followLiveBus);
   renderPanelLiveStatus(null);
 
@@ -3423,6 +3658,7 @@ async function showBusDetails(bus, autoSelectSession = true) {
   setBusFollowEnabled(true);
   followMapInitializedForBus = false;
   initialBusFlyInProgress = false;
+  deferredInitialBusFlyIn = false;
   currentLiveBusExpiresAt = null;
   resetLiveStatus();
   resultTitle.textContent = normalizedBus.busNumber;
@@ -3491,6 +3727,8 @@ async function showBusDetails(bus, autoSelectSession = true) {
 
 searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  const input = document.getElementById('busNumber');
+  input.blur();
   liveOnlySearch = false;
   nearbySearchResults = false;
   document.querySelectorAll('[data-search-filter]').forEach((button) => {
@@ -3508,7 +3746,6 @@ searchForm.addEventListener('submit', async (event) => {
   detailsReturnView = { type: 'catalog' };
   clearNearbyBusTimers();
 
-  const input = document.getElementById('busNumber');
   const query = input.value.trim();
 
   if (!query) {
@@ -3585,6 +3822,40 @@ searchForm.addEventListener('submit', async (event) => {
     );
     setConnectionError(false);
     searchMessage.textContent = '';
+    const pendingOpen = pendingBusDetailsOpen;
+    pendingBusDetailsOpen = null;
+    if (
+      pendingOpen &&
+      normalizeBusNumberKey(pendingOpen.busNumber) ===
+        normalizeBusNumberKey(query)
+    ) {
+      const bus = matchingBuses.find((record) =>
+        normalizeBusNumberKey(record.bus_number) ===
+        normalizeBusNumberKey(pendingOpen.busNumber)
+      );
+      const normalizedBus = normalizeBusRecord(bus);
+      if (normalizedBus) {
+        const session = pendingOpen.busCode
+          ? liveSessions.find((row) =>
+            row.bus_code === pendingOpen.busCode
+          )
+          : null;
+        showBusDetails(normalizedBus, !pendingOpen.busCode)
+          .then(() => {
+            if (session) {
+              selectActiveBusSession(
+                normalizedBus.busNumber,
+                session.bus_code,
+                pendingOpen.busType || session.bus_type
+              );
+            }
+          })
+          .catch((error) => {
+            console.error('Could not open the selected bus details.', error);
+            showToast(t('connectionProblem'), true);
+          });
+      }
+    }
   } catch (error) {
     console.error('Bus search failed', error);
     setPageTitle();
@@ -3597,6 +3868,34 @@ searchForm.addEventListener('submit', async (event) => {
     setConnectionError(true);
   }
 });
+
+const busSearchInput = document.getElementById('busNumber');
+const submitSearchFromInput = () => {
+  if (Date.now() - lastInputSearchAt >= 250) {
+    lastInputSearchAt = Date.now();
+    searchForm.requestSubmit();
+  }
+  busSearchInput.blur();
+};
+busSearchInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' || event.keyCode === 13) {
+    event.preventDefault();
+    submitSearchFromInput();
+  }
+});
+busSearchInput.addEventListener('search', submitSearchFromInput);
+const blurSearchInput = () => {
+  if (document.activeElement === busSearchInput) {
+    busSearchInput.blur();
+  }
+};
+searchResultsList.addEventListener('touchstart', blurSearchInput, {
+  passive: true
+});
+searchResultsList.addEventListener('scroll', blurSearchInput, {
+  passive: true
+});
+liveBusesNearMeBtn?.addEventListener('click', blurSearchInput);
 
 function handleBusCatalogClick(event) {
   const favoriteButton = event.target.closest('[data-favorite-number]');
@@ -3614,6 +3913,12 @@ function handleBusCatalogClick(event) {
 
   const input = document.getElementById('busNumber');
   detailsReturnView = { type: 'catalog' };
+  pendingBusDetailsOpen = {
+    busNumber: card.dataset.busNumber,
+    busCode: card.dataset.busCode || null,
+    busType: card.dataset.busType || null
+  };
+  blurSearchInput();
   input.value = card.dataset.busNumber;
   searchForm.requestSubmit();
 }
@@ -3669,11 +3974,18 @@ recentSearchChips.addEventListener('click', (event) => {
   }
 
   const input = document.getElementById('busNumber');
+  pendingBusDetailsOpen = {
+    busNumber: chip.dataset.busNumber,
+    busCode: null,
+    busType: null
+  };
+  blurSearchInput();
   input.value = chip.dataset.busNumber;
   searchForm.requestSubmit();
 });
 
 searchResultsList.addEventListener('click', (event) => {
+  blurSearchInput();
   const searchResultButton = event.target.closest('[data-search-result-index]');
   if (searchResultButton) {
     const index = Number(searchResultButton.dataset.searchResultIndex);
@@ -3719,6 +4031,7 @@ searchResultsList.addEventListener('click', (event) => {
 
 document.querySelectorAll('[data-search-filter]').forEach((filterButton) => {
   filterButton.addEventListener('click', () => {
+    blurSearchInput();
     liveOnlySearch = filterButton.dataset.searchFilter === 'live';
     document.querySelectorAll('[data-search-filter]').forEach((button) => {
       const selected = button === filterButton;
@@ -4016,8 +4329,11 @@ window.addEventListener('beforeunload', () => {
 homeLink.addEventListener('click', returnToHome);
 bottomHomeBtn?.addEventListener('click', returnToHome);
 bottomLiveMapBtn?.addEventListener('click', showLiveMapView);
-detailsBackBtn.addEventListener('click', returnFromBusDetails);
-document.getElementById('detailsCloseBtn')?.addEventListener('click', returnToHome);
+detailsBackBtn.addEventListener('click', requestCloseDetailsPanel);
+document.getElementById('detailsCloseBtn')?.addEventListener(
+  'click',
+  requestCloseDetailsPanel
+);
 detailsMapBtn?.addEventListener('click', () => {
   setDetailsPanelState(isPhoneDetailsLayout() ? 'peek' : 'hidden');
 });
@@ -4042,13 +4358,18 @@ window.addEventListener('resize', () => {
     if (!resultCard.dataset.snapState) {
       resultCard.dataset.snapState = 'peek';
     }
-  }
-  window.requestAnimationFrame(() => {
-    map?.invalidateSize({ pan: false });
-    if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
-      panMapToLiveBus(true);
+    if (panelDragPointerId === null) {
+      resultCard.style.transform =
+        `translate3d(0, ${getDetailsPanelOffset(
+          resultCard.dataset.snapState
+        )}px, 0)`;
     }
-  });
+  } else {
+    resultCard.style.removeProperty('transform');
+  }
+  if (panelDragPointerId === null) {
+    scheduleMapAfterPanelSnap();
+  }
 });
 moreMenuBtn?.addEventListener('click', () => {
   setBottomNavActive('more');
@@ -4067,7 +4388,27 @@ moreMenu?.addEventListener('click', (event) => {
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !resultCard.hidden && !document.querySelector('dialog[open]')) {
-    returnToHome();
+    requestCloseDetailsPanel();
+  }
+});
+window.addEventListener('popstate', () => {
+  if (
+    detailsHistoryEntry &&
+    window.history.state?.detailsPanelEntryId !== detailsHistoryEntryId &&
+    !resultCard.hidden
+  ) {
+    detailsHistoryEntry = false;
+    detailsHistoryEntryId = null;
+    returnFromBusDetails();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('bus')) {
+      url.searchParams.delete('bus');
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `${url.pathname}${url.search}${url.hash}`
+      );
+    }
   }
 });
 moreDisclaimerBtn?.addEventListener('click', () => {
@@ -4087,6 +4428,13 @@ liveNowList?.addEventListener('click', (event) => {
     return;
   }
   const input = document.getElementById('busNumber');
+  blurSearchInput();
+  pendingBusDetailsOpen = {
+    busNumber: card.dataset.busNumber,
+    busCode: card.dataset.busCode || null,
+    busType: card.dataset.busType || null
+  };
+  detailsReturnView = { type: 'catalog' };
   input.value = card.dataset.busNumber;
   searchForm.requestSubmit();
 });

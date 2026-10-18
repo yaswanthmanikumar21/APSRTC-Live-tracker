@@ -90,7 +90,7 @@
             <input
               id="busNumber"
               name="busNumber"
-              type="text"
+              type="search"
               placeholder="Enter bus number"
               data-i18n-placeholder="busNumberPlaceholder"
               autocomplete="off"
@@ -119,7 +119,7 @@
             <div id="liveNowList" class="live-now-list" aria-live="polite"></div>
           </section>
 
-          <div id="resultCard" class="result-card" hidden>
+          <div id="resultCard" class="result-card" role="dialog" aria-modal="true" aria-label="Bus details" data-i18n-aria-label="busDetails" hidden>
             <button class="details-drag-handle" type="button" aria-label="Change details panel size" data-i18n-aria-label="changePanelSize">
               <span aria-hidden="true"></span>
             </button>
@@ -164,6 +164,7 @@
               <button id="panelFollowBtn" class="panel-follow-button secondary-button" type="button" data-i18n="followBus">Follow bus</button>
             </div>
 
+            <div id="detailsContent" class="details-content">
             <div id="activeSessionsContainer" class="active-sessions-container" hidden>
               <h4 id="activeSessionsHeading">Active buses on this route</h4>
               <p id="activeSessionsMessage" class="active-sessions-message"></p>
@@ -314,6 +315,7 @@
                   GPS debug: waiting to start.
                 </p>
               </details>
+            </div>
             </div>
           </div>
 
