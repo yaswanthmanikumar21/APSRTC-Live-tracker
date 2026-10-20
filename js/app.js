@@ -36,8 +36,22 @@ const moreInstallSlot = document.getElementById('moreInstallSlot');
 const shareMyBusLocationBtn = document.getElementById('shareMyBusLocationBtn');
 const searchForm = document.getElementById('searchForm');
 const androidAppCard = document.getElementById('androidAppCard');
-if (window.Capacitor && androidAppCard) {
-  androidAppCard.hidden = true;
+if (androidAppCard) {
+  const hasAppQuery = new URLSearchParams(window.location.search).get('app') === '1';
+  let isNativeApp = false;
+  if (window.Capacitor) {
+    if (typeof window.Capacitor.isNativePlatform !== 'function') {
+      isNativeApp = true;
+    } else {
+      try {
+        isNativeApp = window.Capacitor.isNativePlatform();
+      } catch (error) {
+        console.warn('Could not detect the native app platform.', error);
+        isNativeApp = true;
+      }
+    }
+  }
+  androidAppCard.hidden = hasAppQuery || isNativeApp;
 }
 const recentSearches = document.getElementById('recentSearches');
 const recentSearchChips = document.getElementById('recentSearchChips');
