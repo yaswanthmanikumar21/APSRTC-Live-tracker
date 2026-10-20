@@ -15,9 +15,10 @@ let toastSequence = 0;
 let detailsReturnView = { type: 'catalog' };
 let pendingBusDetailsOpen = null;
 let lastInputSearchAt = 0;
-let retryDataLoadKind = 'catalog';
 let globalErrorToastActive = false;
 let globalErrorToastTimer = null;
+let activeCatalogRetryTimer = null;
+let liveMapRetryTimer = null;
 
 const busList = document.getElementById('busList');
 const liveNowList = document.getElementById('liveNowList');
@@ -34,6 +35,10 @@ const moreDisclaimerBtn = document.getElementById('moreDisclaimerBtn');
 const moreInstallSlot = document.getElementById('moreInstallSlot');
 const shareMyBusLocationBtn = document.getElementById('shareMyBusLocationBtn');
 const searchForm = document.getElementById('searchForm');
+const androidAppCard = document.getElementById('androidAppCard');
+if (window.Capacitor && androidAppCard) {
+  androidAppCard.hidden = true;
+}
 const recentSearches = document.getElementById('recentSearches');
 const recentSearchChips = document.getElementById('recentSearchChips');
 const findNearbyBtn = document.getElementById('findNearbyBtn');
@@ -439,8 +444,7 @@ function setConnectionError(isVisible) {
   }
 }
 
-function showDataLoadError(kind, messageKey) {
-  retryDataLoadKind = kind;
+function showCatalogLoadError(messageKey) {
   if (connectionErrorMessage) {
     connectionErrorMessage.textContent = t(messageKey);
   }
@@ -589,7 +593,7 @@ window.addEventListener('online', () => {
   updateOfflineBanner();
   loadBusCatalog().catch((error) => {
     console.error('Could not refresh the bus catalog after reconnecting.', error);
-    showDataLoadError('catalog', 'catalogLoadFailed');
+    showCatalogLoadError('catalogLoadFailed');
   });
   window.refreshVisibleLiveLists?.().catch((error) => {
     console.error('Could not refresh live lists after reconnecting.', error);
@@ -1204,9 +1208,22 @@ async function refreshLiveMapMarkers() {
       mapEmptyMessage.hidden = coordinates.length > 0;
     }
     window.requestAnimationFrame(() => map.invalidateSize());
+    if (liveMapRetryTimer) {
+      window.clearTimeout(liveMapRetryTimer);
+      liveMapRetryTimer = null;
+    }
   } catch (error) {
-    console.error('Could not load live buses for the map.', error);
-    showToast(t('liveMapLoadFailed'), true);
+    console.warn('Could not refresh live buses for the map; retrying shortly.', error);
+    if (
+      liveMapRetryTimer === null &&
+      !mapWrapper.hidden &&
+      bottomLiveMapBtn?.getAttribute('aria-current') === 'page'
+    ) {
+      liveMapRetryTimer = window.setTimeout(() => {
+        liveMapRetryTimer = null;
+        refreshLiveMapMarkers();
+      }, 5000);
+    }
   }
 }
 
@@ -1659,6 +1676,10 @@ function renderLiveNowCards(sessions) {
 async function loadActiveCatalogBusNumbers() {
   try {
     const sessions = await window.busTypeHelpers.getActiveBusLocationShares();
+    if (activeCatalogRetryTimer) {
+      window.clearTimeout(activeCatalogRetryTimer);
+      activeCatalogRetryTimer = null;
+    }
     activeLiveSessions = Array.isArray(sessions) ? sessions : [];
     activeCatalogBusNumbers = new Set(
       activeLiveSessions.map((session) =>
@@ -1667,11 +1688,17 @@ async function loadActiveCatalogBusNumbers() {
     );
     renderBusCards();
   } catch (error) {
-    console.error('Failed to load catalog live statuses', error);
+    console.warn('Failed to refresh live bus statuses; retrying shortly.', error);
     activeLiveSessions = [];
     activeCatalogBusNumbers = new Set();
     window.UIMotion?.updateLiveCount(0);
     renderBusCards();
+    if (activeCatalogRetryTimer === null) {
+      activeCatalogRetryTimer = window.setTimeout(() => {
+        activeCatalogRetryTimer = null;
+        loadActiveCatalogBusNumbers();
+      }, 5000);
+    }
   }
 }
 
@@ -1684,7 +1711,7 @@ async function loadBusCatalog() {
     busCatalog = [];
     activeCatalogBusNumbers = new Set();
     renderBusCards();
-    showDataLoadError('catalog', 'catalogLoadFailed');
+    showCatalogLoadError('catalogLoadFailed');
     return;
   }
 
@@ -1718,7 +1745,7 @@ async function loadBusCatalog() {
     console.error('Failed to load buses from Supabase', error);
     busCatalog = [];
     renderBusCards();
-    showDataLoadError('catalog', 'catalogLoadFailed');
+    showCatalogLoadError('catalogLoadFailed');
     searchMessage.textContent = t('catalogLoadFailed');
   }
 }
@@ -2180,7 +2207,7 @@ function loadActiveBusSessions(busNumber, routeLabel, selectFirst = true) {
       });
 
       if (error) {
-        console.error('Failed to load active bus sessions', error);
+        console.warn('Could not refresh active bus sessions.', error);
         renderActiveBusSessions(t('routeSessionLoadFailed'), []);
         return;
       }
@@ -2224,7 +2251,7 @@ function loadActiveBusSessions(busNumber, routeLabel, selectFirst = true) {
       }
     })
     .catch((error) => {
-      console.error('Failed to load active bus sessions', error);
+      console.warn('Could not refresh active bus sessions.', error);
       renderActiveBusSessions(t('routeSessionLoadFailed'), []);
     });
 }
@@ -2415,7 +2442,7 @@ async function refreshNearbyBusSessions() {
       false
     );
   } catch (error) {
-    console.error('Nearby bus refresh failed', error);
+    console.warn('Nearby bus refresh failed; it will retry on the next refresh.', error);
   } finally {
     nearbyBusRefreshInFlight = false;
   }
@@ -2527,7 +2554,6 @@ async function loadBusSessionFromUrl() {
       }
 
       await showBusDetails(normalizedBus);
-      setConnectionError(false);
       console.log('loadBusSessionFromUrl: showBusDetails completed', {
         busNumber: normalizedBus.busNumber,
         busCode
@@ -2537,7 +2563,7 @@ async function loadBusSessionFromUrl() {
       searchMessage.textContent = t('sharedSessionShown', { code: busCode });
     } catch (error) {
       console.error('Failed to load shared bus session', error);
-      setConnectionError(true);
+      showToast(t('couldNotLoadSharedLink'), true);
       searchMessage.textContent = t('couldNotLoadSharedLink');
     }
   }
@@ -3996,7 +4022,6 @@ searchForm.addEventListener('submit', async (event) => {
     resultCard.hidden = true;
     mapWrapper.hidden = true;
     activeSessionsContainer.hidden = true;
-    showDataLoadError('search', 'searchLoadFailed');
     searchMessage.textContent = t('searchLoadFailed');
     return;
   }
@@ -4051,7 +4076,6 @@ searchForm.addEventListener('submit', async (event) => {
       busTypesByNumber,
       liveSessions
     );
-    setConnectionError(false);
     searchMessage.textContent = '';
     const pendingOpen = pendingBusDetailsOpen;
     pendingBusDetailsOpen = null;
@@ -4096,7 +4120,6 @@ searchForm.addEventListener('submit', async (event) => {
     resultCard.hidden = true;
     mapWrapper.hidden = true;
     activeSessionsContainer.hidden = true;
-    showDataLoadError('search', 'searchLoadFailed');
     searchMessage.textContent = t('searchLoadFailed');
   }
 });
@@ -4130,14 +4153,10 @@ searchResultsList.addEventListener('scroll', blurSearchInput, {
 liveBusesNearMeBtn?.addEventListener('click', blurSearchInput);
 retryDataLoadBtn?.addEventListener('click', () => {
   setConnectionError(false);
-  if (retryDataLoadKind === 'search') {
-    searchForm.requestSubmit();
-  } else {
-    loadBusCatalog().catch((error) => {
-      console.error('Could not retry loading the bus catalog.', error);
-      showDataLoadError('catalog', 'catalogLoadFailed');
-    });
-  }
+  loadBusCatalog().catch((error) => {
+    console.error('Could not retry loading the bus catalog.', error);
+    showCatalogLoadError('catalogLoadFailed');
+  });
 });
 
 function handleBusCatalogClick(event) {
@@ -4259,7 +4278,6 @@ searchResultsList.addEventListener('click', (event) => {
             document.getElementById('liveLocationMessage').textContent =
               t('noLiveLocation');
           }
-          setConnectionError(false);
           searchMessage.textContent = t('selectedBusDetails', {
             number: selectedBus.busNumber
           });
@@ -4562,6 +4580,14 @@ document.addEventListener('visibilitychange', () => {
 
 window.addEventListener('beforeunload', () => {
   clearNearbyBusTimers();
+  if (activeCatalogRetryTimer) {
+    clearTimeout(activeCatalogRetryTimer);
+    activeCatalogRetryTimer = null;
+  }
+  if (liveMapRetryTimer) {
+    clearTimeout(liveMapRetryTimer);
+    liveMapRetryTimer = null;
+  }
   if (window.NativeTracking?.isNative()) {
     window.NativeTracking.stop();
   }
@@ -4918,7 +4944,7 @@ async function initializeApp() {
     );
   } catch (error) {
     console.error('Application data initialization failed', error);
-    showDataLoadError('catalog', 'catalogLoadFailed');
+    showUnexpectedErrorToast(error);
   } finally {
     hideLoadingIndicator();
     window.SessionControl?.initialize({
@@ -4939,7 +4965,7 @@ function startApp() {
   }
   initializeApp().catch((error) => {
     console.error('Application initialization failed', error);
-    showDataLoadError('catalog', 'catalogLoadFailed');
+    showUnexpectedErrorToast(error);
   });
 }
 

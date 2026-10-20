@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'apsrtc-live-v4';
+const CACHE_VERSION = 'apsrtc-live-v5';
 const APP_SHELL = [
   '/',
   '/index.html',
