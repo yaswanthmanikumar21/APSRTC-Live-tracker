@@ -237,6 +237,10 @@ textarea::placeholder {
   font-weight: 700;
 }
 
+.status-banner[hidden] {
+  display: none !important;
+}
+
 .custom-duration-input {
   width: 110px;
   min-height: 42px;
