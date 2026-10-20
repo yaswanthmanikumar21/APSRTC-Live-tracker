@@ -4234,3 +4234,10 @@ canvas {
     }
   }
 }
+
+.status-banner[hidden],
+.error-banner[hidden],
+#connectionError[hidden],
+#offlineBanner[hidden] {
+  display: none !important;
+}
