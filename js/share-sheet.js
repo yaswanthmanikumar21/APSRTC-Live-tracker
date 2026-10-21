@@ -69,6 +69,9 @@
       return;
     }
 
+    if (!qrPanel.hidden) {
+      window.BackButton?.replace('dialog:busShareSheet');
+    }
     dialog.close();
     document.body.style.overflow = previousBodyOverflow;
     message.textContent = '';
@@ -126,11 +129,13 @@
       qrImage.src = dataUrl;
       qrDownload.href = dataUrl;
       qrPanel.hidden = false;
+      window.BackButton?.push('bus-share-qr');
       message.textContent = '';
     } catch (error) {
       console.error('Could not generate the bus-link QR code.', error);
       qrOption.hidden = true;
       qrPanel.hidden = true;
+      window.BackButton?.close('bus-share-qr');
       message.textContent = window.t?.('qrUnavailable') ||
         'QR sharing is unavailable right now.';
     }
@@ -177,9 +182,11 @@
       posterQrImage.src = dataUrl;
       posterQrDownload.href = dataUrl;
       posterQrPanel.hidden = false;
+      window.BackButton?.push('poster-qr');
     } catch (error) {
       console.error('Could not generate the poster QR code.', error);
       posterQrPanel.hidden = true;
+      window.BackButton?.close('poster-qr');
     }
   }
 
@@ -258,6 +265,7 @@
     document.body.style.overflow = 'hidden';
     message.textContent = '';
     qrPanel.hidden = true;
+    window.BackButton?.push('dialog:busShareSheet');
     dialog.showModal();
     closeButton.focus();
   }
@@ -304,8 +312,26 @@
       showPosterQr();
     } else {
       posterQrPanel.hidden = true;
+      window.BackButton?.close('poster-qr');
     }
   });
+
+  window.BackButton?.register(
+    'bus-share-qr',
+    () => !qrPanel.hidden,
+    () => {
+      qrPanel.hidden = true;
+    },
+    120
+  );
+  window.BackButton?.register(
+    'poster-qr',
+    () => !posterQrPanel.hidden,
+    () => {
+      posterQrPanel.hidden = true;
+    },
+    120
+  );
 
   window.openBusShareSheet = openBusShareSheet;
 })();

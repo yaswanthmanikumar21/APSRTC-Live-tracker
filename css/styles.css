@@ -916,6 +916,36 @@ p {
   padding: 18px 4px 4px;
 }
 
+.tab-panel[hidden],
+[data-result-panel][hidden] {
+  display: none !important;
+}
+
+.details-unavailable {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.details-unavailable[hidden] {
+  display: none !important;
+}
+
+.details-unavailable p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.details-unavailable button {
+  width: fit-content;
+  min-width: 112px;
+}
+
 .result-header {
   display: flex;
   justify-content: space-between;

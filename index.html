@@ -217,6 +217,10 @@
                     <dd id="resultNumber">-</dd>
                   </div>
                   <div class="detail-item">
+                    <dt data-i18n="route">Route</dt>
+                    <dd id="detailsRoute">-</dd>
+                  </div>
+                  <div class="detail-item">
                     <dt data-i18n="startingPoint">Starting point</dt>
                     <dd id="resultStart">-</dd>
                   </div>
@@ -233,10 +237,26 @@
                     <dd id="lastSeenMessage"></dd>
                   </div>
                   <div class="detail-item">
+                    <dt data-i18n="busType">Bus type</dt>
+                    <dd id="detailsBusType">-</dd>
+                  </div>
+                  <div class="detail-item">
+                    <dt data-i18n="capacity">Capacity</dt>
+                    <dd id="detailsCapacity">-</dd>
+                  </div>
+                  <div class="detail-item">
+                    <dt data-i18n="liveStatus">Live Status</dt>
+                    <dd id="detailsLiveStatus">-</dd>
+                  </div>
+                  <div class="detail-item">
                     <dt data-i18n="busSession">Bus session</dt>
                     <dd id="resultSessionCode">-</dd>
                   </div>
                 </dl>
+                <div id="detailsUnavailable" class="details-unavailable" role="status" hidden>
+                  <p data-i18n="detailsUnavailable">Details not available. Pull down to retry.</p>
+                  <button id="retryDetailsBtn" class="secondary-button" type="button" data-i18n="tryAgain">Retry</button>
+                </div>
                 <section class="trip-info-section">
                   <p id="busEta" class="bus-eta" aria-live="polite" hidden></p>
                   <label id="etaStopLabel" for="etaStopSelect" data-i18n="estimateToStop" hidden>Estimate to stop</label>
@@ -624,6 +644,7 @@
     <script src="js/native-tracking.js"></script>
     <script src="js/session-control.js"></script>
     <script src="js/ui-motion.js"></script>
+    <script src="js/back-button.js"></script>
     <script src="js/app.js"></script>
     <script src="js/live-updates.js"></script>
     <script src="js/effects.js"></script>
