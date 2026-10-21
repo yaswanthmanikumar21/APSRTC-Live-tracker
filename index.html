@@ -131,7 +131,17 @@
               <p id="liveBusCounter" class="live-bus-counter" aria-live="polite" data-i18n="liveBusCount" data-i18n-values='{"count":0}'>0 buses live now</p>
             </div>
             <div id="liveNowList" class="live-now-list" aria-live="polite"></div>
-            <button id="shareMyBusLocationBtn" class="share-my-bus-button" type="button" data-i18n="shareFromLiveEmpty">I’m on a bus, share location</button>
+            <div id="liveNowEmptyState" class="live-now-empty-state" hidden>
+              <svg class="live-now-radar" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                <circle class="live-now-radar__ring live-now-radar__ring--one" cx="50" cy="50" r="12"></circle>
+                <circle class="live-now-radar__ring live-now-radar__ring--two" cx="50" cy="50" r="12"></circle>
+                <circle class="live-now-radar__ring live-now-radar__ring--three" cx="50" cy="50" r="12"></circle>
+                <circle class="live-now-radar__dot" cx="50" cy="50" r="4"></circle>
+              </svg>
+              <p class="live-now-empty__title" data-i18n="noLiveBusesShare">No bus is sharing right now</p>
+              <p class="live-now-empty__message" data-i18n="beFirstToHelpRiders">Be the first to help riders</p>
+              <button id="shareMyBusLocationBtn" class="share-my-bus-button" type="button" data-i18n="shareFromLiveEmpty">I’m on a bus, share location</button>
+            </div>
           </section>
 
           <div id="resultCard" class="result-card" role="dialog" aria-modal="true" aria-label="Bus details" data-i18n-aria-label="busDetails" hidden>

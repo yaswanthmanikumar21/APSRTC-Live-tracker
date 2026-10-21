@@ -4313,6 +4313,8 @@ canvas {
 }
 
 .catalog-section .bus-card:active {
+  border-color: rgba(34, 211, 160, 0.48);
+  box-shadow: var(--shadow-bus-card);
   transform: translateY(-2px) scale(0.99);
 }
 
@@ -4344,5 +4346,191 @@ canvas {
   .catalog-section .bus-card:hover,
   .catalog-section .bus-card:active {
     transform: none;
+  }
+}
+
+.hero-copy {
+  position: relative;
+  isolation: isolate;
+}
+
+.hero-copy::before {
+  position: absolute;
+  z-index: -1;
+  top: -56px;
+  left: -48px;
+  width: min(420px, 110vw);
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    rgba(34, 211, 160, 0.2) 0%,
+    rgba(34, 211, 160, 0.08) 38%,
+    transparent 72%
+  );
+  content: "";
+  opacity: 0.72;
+  pointer-events: none;
+  animation: hero-glow-pulse 6s ease-in-out infinite alternate;
+}
+
+.home-link span {
+  background: linear-gradient(100deg, #fff 12%, #b8f6df 58%, #22d3a0 100%);
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.live-now-empty-state[hidden] {
+  display: none !important;
+}
+
+.live-now-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 14px 10px 16px;
+  text-align: center;
+}
+
+.live-now-radar {
+  width: 88px;
+  height: 88px;
+  overflow: visible;
+}
+
+.live-now-radar__ring {
+  fill: none;
+  stroke: #22d3a0;
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: live-radar-pulse 2.4s ease-out infinite;
+}
+
+.live-now-radar__ring--two {
+  animation-delay: 0.8s;
+}
+
+.live-now-radar__ring--three {
+  animation-delay: 1.6s;
+}
+
+.live-now-radar__dot {
+  fill: #22d3a0;
+  filter: drop-shadow(0 0 6px rgba(34, 211, 160, 0.75));
+}
+
+.live-now-empty-state .live-now-empty__title {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: clamp(1.15rem, 4.5vw, 1.35rem);
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.live-now-empty-state .live-now-empty__message {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.live-now-empty-state .share-my-bus-button {
+  width: min(100%, 420px);
+  min-height: 60px;
+  padding: 12px 18px;
+  font-size: clamp(1rem, 4vw, 1.1rem);
+  box-shadow: 0 8px 24px rgba(34, 211, 160, 0.2);
+}
+
+.favorites-section .live-now-empty::before {
+  content: none;
+}
+
+.catalog-section #busList > .bus-card {
+  animation: catalog-card-fade-up 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.catalog-section #busList > .bus-card:nth-child(2) {
+  animation-delay: 45ms;
+}
+
+.catalog-section #busList > .bus-card:nth-child(3) {
+  animation-delay: 90ms;
+}
+
+.catalog-section #busList > .bus-card:nth-child(4) {
+  animation-delay: 135ms;
+}
+
+.catalog-section #busList > .bus-card:nth-child(5) {
+  animation-delay: 180ms;
+}
+
+.catalog-section #busList > .bus-card:nth-child(6) {
+  animation-delay: 225ms;
+}
+
+@keyframes hero-glow-pulse {
+  from {
+    opacity: 0.55;
+  }
+
+  to {
+    opacity: 0.9;
+  }
+}
+
+@keyframes live-radar-pulse {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.55);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(3.5);
+  }
+}
+
+@keyframes catalog-card-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-copy::before {
+    top: -36px;
+    left: -28px;
+    height: 190px;
+  }
+
+  .live-now-radar {
+    width: 76px;
+    height: 76px;
+  }
+
+  .live-now-empty-state {
+    padding-inline: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy::before,
+  .live-now-radar__ring,
+  .catalog-section #busList > .bus-card {
+    animation: none;
+  }
+
+  .live-now-radar__ring {
+    opacity: 0.5;
+    transform: scale(1.3);
   }
 }
