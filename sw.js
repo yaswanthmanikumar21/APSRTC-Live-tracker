@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'apsrtc-live-v7';
+const CACHE_VERSION = 'apsrtc-live-v8';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -21,6 +21,7 @@ const APP_SHELL = [
   '/js/native-tracking.js',
   '/js/session-control.js',
   '/js/ui-motion.js',
+  '/js/back-button.js',
   '/js/app.js',
   '/js/live-updates.js',
   '/js/effects.js',
