@@ -439,16 +439,13 @@
           <label for="tripTo" data-i18n="to">To</label>
           <input id="tripTo" list="tripStopSuggestions" autocomplete="off" data-i18n-placeholder="tripToPlaceholder" placeholder="Destination stop" />
           <datalist id="tripStopSuggestions"></datalist>
-          <button type="submit" class="primary-button" data-i18n="tripSearch">Search</button>
+          <button id="tripSearchBtn" type="submit" class="primary-button" data-i18n="tripSearch" disabled>Search</button>
         </form>
-        <section class="trip-planner-results-section" aria-labelledby="directTripsHeading">
-          <h2 id="directTripsHeading" data-i18n="directBuses">Direct buses</h2>
+        <div id="tripStopHints" class="trip-stop-hints" aria-live="polite"></div>
+        <section class="trip-planner-results-section" aria-labelledby="tripResultsHeading">
+          <h2 id="tripResultsHeading" data-i18n="busesForTrip">Buses for your trip</h2>
           <p id="tripPlannerMessage" class="trip-planner-message" aria-live="polite"></p>
           <ul id="tripPlannerResults" class="trip-planner-results"></ul>
-        </section>
-        <section class="trip-planner-results-section" aria-labelledby="oneChangeHeading">
-          <h2 id="oneChangeHeading" data-i18n="oneBusChange">With 1 bus change</h2>
-          <ul id="tripPlannerChanges" class="trip-planner-results"></ul>
         </section>
       </section>
     </main>
