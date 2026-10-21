@@ -119,20 +119,6 @@
             >Download APK</a>
           </section>
 
-          <section class="trip-planner-card" aria-labelledby="tripPlannerHeading">
-            <h2 id="tripPlannerHeading" data-i18n="planTrip">Plan trip</h2>
-            <form id="tripPlannerForm" class="trip-planner-form">
-              <label for="tripFrom" data-i18n="from">From</label>
-              <input id="tripFrom" list="tripStopSuggestions" autocomplete="off" data-i18n-placeholder="tripFromPlaceholder" placeholder="Starting stop" />
-              <label for="tripTo" data-i18n="to">To</label>
-              <input id="tripTo" list="tripStopSuggestions" autocomplete="off" data-i18n-placeholder="tripToPlaceholder" placeholder="Destination stop" />
-              <datalist id="tripStopSuggestions"></datalist>
-              <button type="submit" class="secondary-button" data-i18n="findTrips">Find buses</button>
-            </form>
-            <p id="tripPlannerMessage" class="trip-planner-message" aria-live="polite"></p>
-            <ul id="tripPlannerResults" class="trip-planner-results"></ul>
-          </section>
-
           <section
             id="recentSearches"
             class="recent-searches"
@@ -439,6 +425,32 @@
         </section>
         <div id="busList" class="bus-list"></div>
       </section>
+
+      <section id="tripPlannerView" class="trip-planner-view" aria-labelledby="tripPlannerHeading" hidden>
+        <header class="trip-planner-view__header">
+          <p class="eyebrow" data-i18n="tripPlannerEyebrow">Plan a better journey</p>
+          <h1 id="tripPlannerHeading" data-i18n="planTrip">Plan trip</h1>
+          <p class="trip-planner-view__intro" data-i18n="tripPlannerIntro">Find a direct bus or a simple one-change journey.</p>
+        </header>
+        <form id="tripPlannerForm" class="trip-planner-form">
+          <label for="tripFrom" data-i18n="from">From</label>
+          <input id="tripFrom" list="tripStopSuggestions" autocomplete="off" data-i18n-placeholder="tripFromPlaceholder" placeholder="Starting stop" />
+          <button id="swapTripStopsBtn" class="trip-planner-swap secondary-button" type="button" aria-label="Swap From and To" data-i18n-aria-label="swapTripStops">⇅</button>
+          <label for="tripTo" data-i18n="to">To</label>
+          <input id="tripTo" list="tripStopSuggestions" autocomplete="off" data-i18n-placeholder="tripToPlaceholder" placeholder="Destination stop" />
+          <datalist id="tripStopSuggestions"></datalist>
+          <button type="submit" class="primary-button" data-i18n="tripSearch">Search</button>
+        </form>
+        <section class="trip-planner-results-section" aria-labelledby="directTripsHeading">
+          <h2 id="directTripsHeading" data-i18n="directBuses">Direct buses</h2>
+          <p id="tripPlannerMessage" class="trip-planner-message" aria-live="polite"></p>
+          <ul id="tripPlannerResults" class="trip-planner-results"></ul>
+        </section>
+        <section class="trip-planner-results-section" aria-labelledby="oneChangeHeading">
+          <h2 id="oneChangeHeading" data-i18n="oneBusChange">With 1 bus change</h2>
+          <ul id="tripPlannerChanges" class="trip-planner-results"></ul>
+        </section>
+      </section>
     </main>
 
     <nav class="bottom-nav" aria-label="Main navigation" data-i18n-aria-label="mainNavigation">
@@ -449,6 +461,10 @@
       <button id="bottomLiveMapBtn" class="bottom-nav__item" type="button" data-bottom-nav="map">
         <span class="bottom-nav__icon" aria-hidden="true">⌖</span>
         <span data-i18n="liveMap">Live map</span>
+      </button>
+      <button id="bottomPlanBtn" class="bottom-nav__item" type="button" data-bottom-nav="plan">
+        <span class="bottom-nav__icon" aria-hidden="true">⇄</span>
+        <span data-i18n="planNav">Plan</span>
       </button>
       <button id="moreMenuBtn" class="bottom-nav__item more-menu-button" type="button" aria-haspopup="dialog" aria-controls="moreMenu" data-bottom-nav="more">
         <span class="bottom-nav__icon" aria-hidden="true">•••</span>
