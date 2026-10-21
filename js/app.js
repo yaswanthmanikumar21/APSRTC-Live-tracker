@@ -26,12 +26,8 @@ const liveNowEmptyState = document.getElementById('liveNowEmptyState');
 const favoriteBusList = document.getElementById('favoriteBusList');
 const myBusesSection = document.getElementById('myBusesSection');
 const popularRoutesList = document.getElementById('popularRoutesList');
-const tripPlannerForm = document.getElementById('tripPlannerForm');
-const tripFromInput = document.getElementById('tripFrom');
-const tripToInput = document.getElementById('tripTo');
-const tripStopSuggestions = document.getElementById('tripStopSuggestions');
-const tripPlannerMessage = document.getElementById('tripPlannerMessage');
-const tripPlannerResults = document.getElementById('tripPlannerResults');
+const tripPlannerView = document.getElementById('tripPlannerView');
+const bottomPlanBtn = document.getElementById('bottomPlanBtn');
 const favoriteBusBtn = document.getElementById('favoriteBusBtn');
 const homeLink = document.getElementById('homeLink');
 const moreMenu = document.getElementById('moreMenu');
@@ -209,6 +205,8 @@ let nearbyBusLongitude = null;
 let nearbyBusRefreshInFlight = false;
 let proximityAlertDistanceKm = null;
 let lastSeenBusRequestId = 0;
+let tripPlannerPreviousView = 'home';
+let tripPlannerHistoryEntry = false;
 let wakeLockSentinel = null;
 let gpsBackupWorker = null;
 let gpsBackupWorkerUnavailable = false;
@@ -664,6 +662,18 @@ function showToast(message, isError = false) {
 }
 
 function returnToHome() {
+  if (window.history.state?.tripPlannerView) {
+    window.history.replaceState(
+      { ...window.history.state, tripPlannerView: false },
+      '',
+      window.location.href
+    );
+  }
+  if (tripPlannerView) {
+    tripPlannerView.hidden = true;
+  }
+  document.querySelector('.page-shell')?.classList.remove('trip-planner-open');
+  tripPlannerHistoryEntry = false;
   clearNearbyBusTimers();
   if (liveMapRefreshInterval) {
     clearInterval(liveMapRefreshInterval);
@@ -731,6 +741,10 @@ function returnToHome() {
 }
 
 function returnFromBusDetails() {
+  if (tripPlannerView) {
+    tripPlannerView.hidden = true;
+  }
+  document.querySelector('.page-shell')?.classList.remove('trip-planner-open');
   const returnView = detailsReturnView;
   stopRealtimeSubscription();
   clearLiveBusMarker();
@@ -1172,6 +1186,61 @@ function setBottomNavActive(view) {
   });
 }
 
+function showTripPlannerView() {
+  if (!tripPlannerView) {
+    return;
+  }
+  moreMenu?.close();
+  if (tripPlannerView.hidden) {
+    tripPlannerPreviousView =
+      bottomLiveMapBtn?.getAttribute('aria-current') === 'page'
+        ? 'map'
+        : 'home';
+  }
+  if (liveMapRefreshInterval) {
+    clearInterval(liveMapRefreshInterval);
+    liveMapRefreshInterval = null;
+  }
+  resultCard.hidden = true;
+  mapWrapper.hidden = true;
+  tripPlannerView.hidden = false;
+  document.querySelector('.page-shell')?.classList.add('trip-planner-open');
+  setPageTitle();
+  setBottomNavActive('plan');
+  if (!tripPlannerHistoryEntry) {
+    window.history.pushState(
+      { ...window.history.state, tripPlannerView: true },
+      '',
+      window.location.href
+    );
+    tripPlannerHistoryEntry = true;
+  }
+}
+
+function leaveTripPlannerView(restorePrevious = false, fromPopState = false) {
+  if (!tripPlannerView || tripPlannerView.hidden) {
+    return;
+  }
+  tripPlannerView.hidden = true;
+  document.querySelector('.page-shell')?.classList.remove('trip-planner-open');
+  tripPlannerHistoryEntry = false;
+  if (!fromPopState && window.history.state?.tripPlannerView) {
+    window.history.replaceState(
+      { ...window.history.state, tripPlannerView: false },
+      '',
+      window.location.href
+    );
+  }
+  if (!restorePrevious) {
+    return;
+  }
+  if (tripPlannerPreviousView === 'map') {
+    showLiveMapView();
+  } else {
+    returnToHome();
+  }
+}
+
 function clearLiveMapMarkers() {
   liveMapMarkers.forEach((marker) => map?.removeLayer(marker));
   liveMapMarkers = [];
@@ -1263,6 +1332,7 @@ async function refreshLiveMapMarkers() {
 
 async function showLiveMapView() {
   moreMenu?.close();
+  leaveTripPlannerView(false);
   resultCard.hidden = true;
   document.body.classList.remove(
     'details-panel-open',
@@ -1484,64 +1554,6 @@ function renderPopularRouteChips() {
   });
 }
 
-function renderTripStopSuggestions() {
-  if (!tripStopSuggestions || !window.TripTools) {
-    return;
-  }
-  const stops = new Map();
-  getActiveBusCatalog().forEach((bus) => {
-    window.TripTools.getBusStops(bus).forEach((stop) => {
-      const key = window.TripTools.normalizeStopName(stop);
-      if (key && !stops.has(key)) {
-        stops.set(key, stop);
-      }
-    });
-  });
-  tripStopSuggestions.replaceChildren();
-  Array.from(stops.values()).sort((a, b) => a.localeCompare(b)).forEach((stop) => {
-    const option = document.createElement('option');
-    option.value = stop;
-    option.label = displayPlaceName(stop);
-    tripStopSuggestions.appendChild(option);
-  });
-}
-
-function renderTripPlannerResults() {
-  if (!tripPlannerResults || !tripPlannerMessage || !window.TripTools) {
-    return;
-  }
-  tripPlannerResults.replaceChildren();
-  const matches = getActiveBusCatalog().flatMap((bus) => {
-    const trip = window.TripTools.matchTrip(
-      bus,
-      tripFromInput.value,
-      tripToInput.value
-    );
-    return trip ? [{ bus, trip }] : [];
-  });
-  if (!matches.length) {
-    tripPlannerMessage.textContent = t('noDirectBusFound');
-    return;
-  }
-  tripPlannerMessage.textContent = '';
-  matches.forEach(({ bus, trip }) => {
-    const item = document.createElement('li');
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'trip-planner-result';
-    button.dataset.busNumber = bus.busNumber;
-    const title = document.createElement('strong');
-    title.textContent = bus.busNumber;
-    const route = document.createElement('span');
-    route.textContent = displayPlaceName(bus.routeName, true);
-    const count = document.createElement('span');
-    count.textContent = t('stopsBetween', { count: trip.stopsBetween });
-    button.append(title, route, count);
-    item.appendChild(button);
-    tripPlannerResults.appendChild(item);
-  });
-}
-
 const RECENT_BUSES_STORAGE_KEY = 'apsrtcLive.recentBuses';
 const MAX_RECENT_BUSES = 5;
 
@@ -1700,7 +1712,7 @@ function renderBusCards() {
   renderLiveNowCards(activeLiveSessions);
   renderFavoriteBusCards();
   renderPopularRouteChips();
-  renderTripStopSuggestions();
+  window.TripTools?.setCatalog(busesToRender);
 
   if (!busesToRender.length) {
     const emptyCard = document.createElement('article');
@@ -4591,13 +4603,20 @@ function handleBusCatalogClick(event) {
 busList.addEventListener('click', handleBusCatalogClick);
 favoriteBusList?.addEventListener('click', handleBusCatalogClick);
 popularRoutesList?.addEventListener('click', handleBusCatalogClick);
-tripPlannerResults?.addEventListener('click', handleBusCatalogClick);
-tripPlannerForm?.addEventListener('submit', (event) => {
-  event.preventDefault();
-  renderTripPlannerResults();
-});
 favoriteBusBtn?.addEventListener('click', () => {
   toggleFavoriteBus(currentBusNumber);
+});
+window.addEventListener('tripbusselect', (event) => {
+  const busNumber = event.detail?.busNumber;
+  if (!busNumber) {
+    return;
+  }
+  leaveTripPlannerView(false);
+  const input = document.getElementById('busNumber');
+  detailsReturnView = { type: 'catalog' };
+  pendingBusDetailsOpen = { busNumber, busCode: null, busType: null };
+  input.value = busNumber;
+  searchForm.requestSubmit();
 });
 document.querySelectorAll('[data-alert-distance]').forEach((button) => {
   button.setAttribute('aria-pressed', 'false');
@@ -5039,6 +5058,7 @@ window.addEventListener('beforeunload', () => {
 homeLink.addEventListener('click', returnToHome);
 bottomHomeBtn?.addEventListener('click', returnToHome);
 bottomLiveMapBtn?.addEventListener('click', showLiveMapView);
+bottomPlanBtn?.addEventListener('click', showTripPlannerView);
 detailsBackBtn.addEventListener('click', requestCloseDetailsPanel);
 document.getElementById('detailsCloseBtn')?.addEventListener(
   'click',
@@ -5086,9 +5106,11 @@ moreMenuBtn?.addEventListener('click', () => {
   moreMenu?.showModal();
 });
 moreMenu?.addEventListener('close', () => {
-  setBottomNavActive(
-    !mapWrapper.hidden && resultCard.hidden ? 'map' : 'home'
-  );
+  setBottomNavActive(tripPlannerView && !tripPlannerView.hidden
+    ? 'plan'
+    : !mapWrapper.hidden && resultCard.hidden
+      ? 'map'
+      : 'home');
 });
 moreMenuCloseBtn?.addEventListener('click', () => moreMenu?.close());
 moreMenu?.addEventListener('click', (event) => {
@@ -5111,6 +5133,15 @@ window.addEventListener('popstate', () => {
   ) {
     dialogHistoryBackInProgress = true;
     openDialog.close();
+    return;
+  }
+
+  if (
+    tripPlannerView &&
+    !tripPlannerView.hidden &&
+    window.history.state?.tripPlannerView !== true
+  ) {
+    leaveTripPlannerView(true, true);
     return;
   }
 
@@ -5350,9 +5381,6 @@ window.addEventListener('languagechange', () => {
       searchResultsMessage.textContent = isStopQuery
         ? t('busesThatStopHere', { stop: displayPlaceName(busSearchQuery) })
         : t('searchChoice', { query: busSearchQuery });
-    }
-    if (tripFromInput?.value.trim() || tripToInput?.value.trim()) {
-      renderTripPlannerResults();
     }
     document.querySelectorAll('.bus-type-badge').forEach((badge) => {
       badge.textContent = badge.dataset.busType === 'ordinary'
