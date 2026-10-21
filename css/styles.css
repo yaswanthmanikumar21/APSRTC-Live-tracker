@@ -4241,3 +4241,108 @@ canvas {
 #offlineBanner[hidden] {
   display: none !important;
 }
+
+.page-shell {
+  gap: 22px;
+}
+
+.hero-copy {
+  gap: 20px;
+}
+
+.section-header h2,
+.live-now-heading h2 {
+  font-size: clamp(1.3rem, 5vw, 1.55rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.live-now-section,
+.catalog-section {
+  margin-block: 4px;
+}
+
+.live-now-empty {
+  display: grid;
+  justify-items: center;
+  max-width: none;
+  gap: 8px;
+  padding: 14px 8px 16px;
+  color: var(--text);
+  font-size: clamp(1.05rem, 4.2vw, 1.2rem);
+  font-weight: 650;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.live-now-empty::before {
+  content: "🚌";
+  font-size: 2.5rem;
+  line-height: 1.1;
+}
+
+.live-now-section .share-my-bus-button {
+  min-height: 60px;
+  padding: 12px 18px;
+  font-size: clamp(1rem, 4vw, 1.1rem);
+  box-shadow: 0 8px 24px rgba(34, 211, 160, 0.18);
+}
+
+.catalog-section .bus-card {
+  border-color: rgba(34, 211, 160, 0.16);
+  background: linear-gradient(
+    135deg,
+    rgba(34, 211, 160, 0.09),
+    var(--surface-subtle) 56%,
+    var(--card)
+  );
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.catalog-section .bus-card__open .bus-number {
+  font-size: 1.35rem;
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .catalog-section .bus-card:hover {
+    border-color: rgba(34, 211, 160, 0.4);
+    transform: translateY(-3px);
+  }
+}
+
+.catalog-section .bus-card:active {
+  transform: translateY(-2px) scale(0.99);
+}
+
+@media (max-width: 480px) {
+  .page-shell {
+    gap: 18px;
+    padding-top: 14px;
+  }
+
+  .hero-copy {
+    gap: 17px;
+  }
+
+  .live-now-section,
+  .catalog-section {
+    margin-block: 2px;
+  }
+
+  .catalog-section .bus-card__open .bus-number {
+    font-size: 1.28rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-section .bus-card {
+    transition: none;
+  }
+
+  .catalog-section .bus-card:hover,
+  .catalog-section .bus-card:active {
+    transform: none;
+  }
+}
