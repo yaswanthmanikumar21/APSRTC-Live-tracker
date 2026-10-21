@@ -1079,6 +1079,10 @@ p {
   gap: 4px;
 }
 
+#detailsStopsRow[hidden] {
+  display: none !important;
+}
+
 .detail-item dt {
   font-weight: 700;
 }
