@@ -25,6 +25,13 @@ const liveNowList = document.getElementById('liveNowList');
 const liveNowEmptyState = document.getElementById('liveNowEmptyState');
 const favoriteBusList = document.getElementById('favoriteBusList');
 const myBusesSection = document.getElementById('myBusesSection');
+const popularRoutesList = document.getElementById('popularRoutesList');
+const tripPlannerForm = document.getElementById('tripPlannerForm');
+const tripFromInput = document.getElementById('tripFrom');
+const tripToInput = document.getElementById('tripTo');
+const tripStopSuggestions = document.getElementById('tripStopSuggestions');
+const tripPlannerMessage = document.getElementById('tripPlannerMessage');
+const tripPlannerResults = document.getElementById('tripPlannerResults');
 const favoriteBusBtn = document.getElementById('favoriteBusBtn');
 const homeLink = document.getElementById('homeLink');
 const moreMenu = document.getElementById('moreMenu');
@@ -94,6 +101,14 @@ const livePanelStatus = document.getElementById('livePanelStatus');
 const livePanelUpdated = document.getElementById('livePanelUpdated');
 const resultSessionCode = document.getElementById('resultSessionCode');
 const resultStops = document.getElementById('resultStops');
+const lastSeenRow = document.getElementById('lastSeenRow');
+const lastSeenMessage = document.getElementById('lastSeenMessage');
+const busEta = document.getElementById('busEta');
+const etaStopLabel = document.getElementById('etaStopLabel');
+const etaStopSelect = document.getElementById('etaStopSelect');
+const routeTimeline = document.getElementById('routeTimeline');
+const proximityAlertHeading = document.getElementById('proximityAlertHeading');
+const proximityAlertChoices = document.getElementById('proximityAlertChoices');
 const liveDirection = document.getElementById('liveDirection');
 const liveDirectionArrow = document.getElementById('liveDirectionArrow');
 const liveDirectionDot = document.getElementById('liveDirectionDot');
@@ -123,6 +138,7 @@ const sharingDisclaimer = document.getElementById('sharingDisclaimer');
 const dismissSharingDisclaimer = document.getElementById('dismissSharingDisclaimer');
 const locationPanel = document.getElementById('locationPanel');
 const locationStatusText = document.getElementById('locationStatusText');
+const shareRideWhatsAppBtn = document.getElementById('shareRideWhatsAppBtn');
 const sharingReminder = document.getElementById('sharingReminder');
 const latitudeValue = document.getElementById('latitudeValue');
 const longitudeValue = document.getElementById('longitudeValue');
@@ -191,6 +207,8 @@ let nearbyBusTimestampTicker = null;
 let nearbyBusLatitude = null;
 let nearbyBusLongitude = null;
 let nearbyBusRefreshInFlight = false;
+let proximityAlertDistanceKm = null;
+let lastSeenBusRequestId = 0;
 let wakeLockSentinel = null;
 let gpsBackupWorker = null;
 let gpsBackupWorkerUnavailable = false;
@@ -1436,19 +1454,91 @@ function renderFavoriteBusCards() {
   const favorites = getActiveBusCatalog().filter((bus) =>
     isFavoriteBus(bus.busNumber)
   );
-  myBusesSection.hidden = favoriteBusNumbers.size === 0;
-  if (favoriteBusNumbers.size > 0 && favorites.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'live-now-empty';
-    empty.textContent = t('favoritesUnavailable');
-    favoriteBusList.appendChild(empty);
-  }
+  myBusesSection.hidden = favorites.length === 0;
   favorites.forEach((bus) => {
     try {
-      favoriteBusList.appendChild(createBusCatalogCard(bus));
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'bus-chip';
+      chip.dataset.busNumber = bus.busNumber;
+      chip.textContent = bus.busNumber;
+      favoriteBusList.appendChild(chip);
     } catch (error) {
-      console.error('Could not render a favorite bus card.', error, bus);
+      console.error('Could not render a favorite bus chip.', error, bus);
     }
+  });
+}
+
+function renderPopularRouteChips() {
+  if (!popularRoutesList) {
+    return;
+  }
+  popularRoutesList.replaceChildren();
+  getActiveBusCatalog().slice(0, 6).forEach((bus) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'bus-chip';
+    chip.dataset.busNumber = bus.busNumber;
+    chip.textContent = bus.busNumber;
+    popularRoutesList.appendChild(chip);
+  });
+}
+
+function renderTripStopSuggestions() {
+  if (!tripStopSuggestions || !window.TripTools) {
+    return;
+  }
+  const stops = new Map();
+  getActiveBusCatalog().forEach((bus) => {
+    window.TripTools.getBusStops(bus).forEach((stop) => {
+      const key = window.TripTools.normalizeStopName(stop);
+      if (key && !stops.has(key)) {
+        stops.set(key, stop);
+      }
+    });
+  });
+  tripStopSuggestions.replaceChildren();
+  Array.from(stops.values()).sort((a, b) => a.localeCompare(b)).forEach((stop) => {
+    const option = document.createElement('option');
+    option.value = stop;
+    option.label = displayPlaceName(stop);
+    tripStopSuggestions.appendChild(option);
+  });
+}
+
+function renderTripPlannerResults() {
+  if (!tripPlannerResults || !tripPlannerMessage || !window.TripTools) {
+    return;
+  }
+  tripPlannerResults.replaceChildren();
+  const matches = getActiveBusCatalog().flatMap((bus) => {
+    const trip = window.TripTools.matchTrip(
+      bus,
+      tripFromInput.value,
+      tripToInput.value
+    );
+    return trip ? [{ bus, trip }] : [];
+  });
+  if (!matches.length) {
+    tripPlannerMessage.textContent = t('noDirectBusFound');
+    return;
+  }
+  tripPlannerMessage.textContent = '';
+  matches.forEach(({ bus, trip }) => {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'trip-planner-result';
+    button.dataset.busNumber = bus.busNumber;
+    const title = document.createElement('strong');
+    title.textContent = bus.busNumber;
+    const route = document.createElement('span');
+    route.textContent = displayPlaceName(bus.routeName, true);
+    const count = document.createElement('span');
+    count.textContent = t('stopsBetween', { count: trip.stopsBetween });
+    button.append(title, route, count);
+    item.appendChild(button);
+    tripPlannerResults.appendChild(item);
   });
 }
 
@@ -1609,6 +1699,8 @@ function renderBusCards() {
   const busesToRender = getActiveBusCatalog();
   renderLiveNowCards(activeLiveSessions);
   renderFavoriteBusCards();
+  renderPopularRouteChips();
+  renderTripStopSuggestions();
 
   if (!busesToRender.length) {
     const emptyCard = document.createElement('article');
@@ -1840,6 +1932,238 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+function getStopCoordinates(stopName) {
+  const stopKey = window.TripTools?.normalizeStopName(stopName);
+  if (!stopKey || !window.STOP_COORDS) {
+    return null;
+  }
+  const match = Object.entries(window.STOP_COORDS).find(([name, coordinates]) =>
+    window.TripTools.normalizeStopName(name) === stopKey &&
+    Array.isArray(coordinates) &&
+    coordinates.length === 2 &&
+    coordinates.every(Number.isFinite)
+  );
+  return match ? match[1] : null;
+}
+
+function renderRouteTimeline(bus = currentDisplayedBusRecord, position = null) {
+  if (!routeTimeline || !bus || !window.TripTools) {
+    return;
+  }
+  const stops = window.TripTools.getBusStops(bus);
+  const point = Array.isArray(position)
+    ? position.map(Number)
+    : null;
+  const coordinateStops = stops
+    .map((name) => ({ name, coordinates: getStopCoordinates(name) }))
+    .filter((entry) => entry.coordinates);
+  let nearestStop = null;
+  if (point?.length === 2 && point.every(Number.isFinite) && coordinateStops.length) {
+    nearestStop = coordinateStops.reduce((nearest, stop) => {
+      const distance = getDistanceKm(
+        point[0],
+        point[1],
+        stop.coordinates[0],
+        stop.coordinates[1]
+      );
+      return !nearest || distance < nearest.distance
+        ? { name: stop.name, distance }
+        : nearest;
+    }, null);
+  }
+
+  routeTimeline.replaceChildren();
+  stops.forEach((stop) => {
+    const item = document.createElement('li');
+    item.className = 'route-timeline__item';
+    const dot = document.createElement('span');
+    dot.className = 'route-timeline__dot';
+    dot.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.className = 'route-timeline__label';
+    label.textContent = displayPlaceName(stop);
+    item.append(dot, label);
+    if (
+      nearestStop &&
+      window.TripTools.normalizeStopName(nearestStop.name) ===
+        window.TripTools.normalizeStopName(stop)
+    ) {
+      const busIcon = document.createElement('span');
+      busIcon.className = 'route-timeline__bus';
+      busIcon.textContent = '🚌';
+      busIcon.setAttribute('aria-label', t('busAtStop', {
+        stop: displayPlaceName(stop)
+      }));
+      item.appendChild(busIcon);
+    }
+    routeTimeline.appendChild(item);
+  });
+}
+
+function populateEtaStopOptions(bus = currentDisplayedBusRecord) {
+  if (!etaStopSelect || !etaStopLabel || !bus || !window.TripTools) {
+    return;
+  }
+  const selectedStop = etaStopSelect.value;
+  const availableStops = window.TripTools.getBusStops(bus).filter(
+    (stop) => getStopCoordinates(stop)
+  );
+  etaStopSelect.replaceChildren();
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = t('estimateToStop');
+  etaStopSelect.appendChild(placeholder);
+  availableStops.forEach((stop) => {
+    const option = document.createElement('option');
+    option.value = stop;
+    option.textContent = displayPlaceName(stop);
+    etaStopSelect.appendChild(option);
+  });
+  etaStopSelect.value = availableStops.includes(selectedStop)
+    ? selectedStop
+    : '';
+  const hasOptions = availableStops.length > 0;
+  etaStopSelect.hidden = !hasOptions;
+  etaStopLabel.hidden = !hasOptions;
+}
+
+function estimateCurrentBusSpeedKmH() {
+  const points = liveBusTrail.slice(-5);
+  if (points.length < 2) {
+    return 15;
+  }
+  let distanceKm = 0;
+  let elapsedHours = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const elapsed = (current.timestamp - previous.timestamp) / 3600000;
+    if (elapsed <= 0) {
+      continue;
+    }
+    distanceKm += getDistanceKm(
+      previous.position[0],
+      previous.position[1],
+      current.position[0],
+      current.position[1]
+    );
+    elapsedHours += elapsed;
+  }
+  const speed = elapsedHours > 0 ? distanceKm / elapsedHours : 0;
+  return speed < 5 || !Number.isFinite(speed) ? 15 : speed;
+}
+
+function updateBusEta(position = previousLiveBusPosition) {
+  if (!busEta || !Array.isArray(position) || !currentDisplayedBusRecord) {
+    if (busEta) {
+      busEta.hidden = true;
+    }
+    return;
+  }
+  let destination = null;
+  const selectedStop = etaStopSelect?.value;
+  if (selectedStop) {
+    destination = getStopCoordinates(selectedStop);
+  } else if (
+    Number.isFinite(nearbyBusLatitude) &&
+    Number.isFinite(nearbyBusLongitude)
+  ) {
+    destination = [nearbyBusLatitude, nearbyBusLongitude];
+  }
+  if (!destination) {
+    busEta.hidden = true;
+    return;
+  }
+  const distance = getDistanceKm(
+    Number(position[0]),
+    Number(position[1]),
+    Number(destination[0]),
+    Number(destination[1])
+  );
+  const speed = estimateCurrentBusSpeedKmH();
+  const minutes = Math.max(1, Math.round((distance / speed) * 60));
+  busEta.textContent = t('busEta', {
+    minutes,
+    distance: distance.toFixed(1)
+  });
+  busEta.hidden = false;
+}
+
+function checkProximityAlert(position) {
+  if (
+    proximityAlertDistanceKm === null ||
+    !Number.isFinite(nearbyBusLatitude) ||
+    !Number.isFinite(nearbyBusLongitude) ||
+    !Array.isArray(position)
+  ) {
+    return;
+  }
+  const distance = getDistanceKm(
+    nearbyBusLatitude,
+    nearbyBusLongitude,
+    Number(position[0]),
+    Number(position[1])
+  );
+  if (distance > proximityAlertDistanceKm) {
+    return;
+  }
+  const busNumber = currentBusNumber || '';
+  const message = t('busNearRider', {
+    number: busNumber,
+    distance: Math.round(proximityAlertDistanceKm * 1000)
+  });
+  showToast(message);
+  try {
+    navigator.vibrate?.([120, 60, 120]);
+  } catch (error) {
+    console.warn('Could not vibrate for the nearby-bus alert.', error);
+  }
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(t('busNearNotificationTitle'), { body: message });
+    } catch (error) {
+      console.warn('Could not show the nearby-bus notification.', error);
+    }
+  }
+  proximityAlertDistanceKm = null;
+  document.querySelectorAll('[data-alert-distance]').forEach((button) => {
+    button.classList.remove('is-active');
+    button.setAttribute('aria-pressed', 'false');
+  });
+  if (proximityAlertChoices) {
+    proximityAlertChoices.hidden = true;
+  }
+  proximityAlertHeading?.setAttribute('aria-expanded', 'false');
+}
+
+async function loadAndRenderLastSeen(busNumber, requestId = lastSeenBusRequestId) {
+  if (!window.TripTools?.getLastSeenBusShare || !lastSeenRow || !lastSeenMessage) {
+    return;
+  }
+  try {
+    const { data, error } = await window.TripTools.getLastSeenBusShare(busNumber);
+    if (error) {
+      throw error;
+    }
+    if (
+      requestId !== lastSeenBusRequestId ||
+      normalizeBusNumberKey(currentBusNumber) !== normalizeBusNumberKey(busNumber) ||
+      !data?.updated_at ||
+      (Number.isFinite(currentLiveBusExpiresAt) &&
+        currentLiveBusExpiresAt > Date.now())
+    ) {
+      return;
+    }
+    lastSeenMessage.textContent = t('lastSeen', {
+      time: formatTimeAgo(data.updated_at)
+    });
+    lastSeenMessage.dataset.timestamp = data.updated_at;
+    lastSeenRow.hidden = false;
+  } catch (error) {
+    console.warn('Could not load the bus last-seen location.', error);
+  }
 }
 
 function getBusSessionUrl(busCode = currentBusSessionCode) {
@@ -2225,7 +2549,15 @@ function loadActiveBusSessions(busNumber, routeLabel, selectFirst = true) {
       }
 
       const activeRows = Array.isArray(data) ? data : [];
+      if (!activeRows.length) {
+        loadAndRenderLastSeen(busNumber);
+      }
       const viewerPosition = await getViewerPositionOnce();
+      if (viewerPosition) {
+        nearbyBusLatitude = viewerPosition.latitude;
+        nearbyBusLongitude = viewerPosition.longitude;
+        updateBusEta(previousLiveBusPosition);
+      }
       const displayRows = viewerPosition
         ? activeRows
             .map((row) => ({
@@ -3109,6 +3441,9 @@ function stopLocationSharing(message = t('locationSharingStopped')) {
 
   locationPanel.hidden = false;
   locationStatusText.textContent = message;
+  if (shareRideWhatsAppBtn) {
+    shareRideWhatsAppBtn.hidden = true;
+  }
   latitudeValue.textContent = '-';
   longitudeValue.textContent = '-';
   lastUpdateValue.textContent = '-';
@@ -3229,6 +3564,9 @@ function updateUserLocation(position) {
   startLocationUpdateTicker();
   locationStatusText.textContent = t('sharingActive');
   locationPanel.hidden = false;
+  if (shareRideWhatsAppBtn) {
+    shareRideWhatsAppBtn.hidden = false;
+  }
   stopSharingBtn.hidden = false;
 
   if (map) {
@@ -3590,6 +3928,12 @@ async function updateLiveBusLocationFromRow(row, liveMessage) {
   }
   previousLiveBusPosition = currentPosition;
   addLiveBusTrailPoint(currentPosition, updatedAt, row);
+  if (lastSeenRow) {
+    lastSeenRow.hidden = true;
+  }
+  renderRouteTimeline(currentDisplayedBusRecord, currentPosition);
+  updateBusEta(currentPosition);
+  checkProximityAlert(currentPosition);
 
   if (liveMessage) {
     startBusLocationTicker(liveMessage, liveBusUpdatedAt);
@@ -3653,6 +3997,7 @@ async function startRealtimeForBus(busNumber, busCode = null) {
       if (liveMessage) {
         liveMessage.textContent = t('noLiveLocation');
       }
+      loadAndRenderLastSeen(busNumber);
     } else {
       setBusTypeBadges(data.bus_type);
       updateSessionBusTypeBadge(busNumber, busCode, data.bus_type);
@@ -3946,6 +4291,24 @@ async function showBusDetails(bus, autoSelectSession = true) {
   currentBusNumber = normalizedBus.busNumber;
   currentBusRoute = normalizedBus.routeName;
   currentDisplayedBusRecord = normalizedBus;
+  lastSeenBusRequestId += 1;
+  if (lastSeenRow) {
+    lastSeenRow.hidden = true;
+  }
+  if (busEta) {
+    busEta.hidden = true;
+  }
+  proximityAlertDistanceKm = null;
+  document.querySelectorAll('[data-alert-distance]').forEach((button) => {
+    button.classList.remove('is-active');
+    button.setAttribute('aria-pressed', 'false');
+  });
+  if (proximityAlertChoices) {
+    proximityAlertChoices.hidden = true;
+  }
+  proximityAlertHeading?.setAttribute('aria-expanded', 'false');
+  populateEtaStopOptions(normalizedBus);
+  renderRouteTimeline(normalizedBus);
   updateDetailsFavoriteButton();
   rememberSearchedBus(normalizedBus.busNumber);
   clearBusSearchResults();
@@ -4020,6 +4383,34 @@ searchForm.addEventListener('submit', async (event) => {
     mapWrapper.hidden = true;
     activeSessionsContainer.hidden = true;
     return;
+  }
+
+  const knownBusNumber = getActiveBusCatalog().some((bus) =>
+    normalizeBusNumberKey(bus.busNumber) === normalizeBusNumberKey(query)
+  );
+  if (!knownBusNumber && window.TripTools) {
+    const stopKey = window.TripTools.normalizeStopName(query);
+    const busesAtStop = getActiveBusCatalog().filter((bus) =>
+      window.TripTools.getBusStops(bus).some((stop) =>
+        window.TripTools.normalizeStopName(stop) === stopKey
+      )
+    );
+    if (busesAtStop.length) {
+      const matchingNumbers = new Set(
+        busesAtStop.map((bus) => normalizeBusNumberKey(bus.busNumber))
+      );
+      const stopSessions = getUnexpiredLiveSessions(activeLiveSessions).filter(
+        (session) => matchingNumbers.has(
+          normalizeBusNumberKey(session.bus_number)
+        )
+      );
+      renderBusSearchResults(busesAtStop, query, new Map(), stopSessions);
+      searchResultsMessage.textContent = t('busesThatStopHere', {
+        stop: displayPlaceName(query)
+      });
+      searchMessage.textContent = '';
+      return;
+    }
   }
 
   if (!window.supabaseHelpers) {
@@ -4199,8 +4590,46 @@ function handleBusCatalogClick(event) {
 
 busList.addEventListener('click', handleBusCatalogClick);
 favoriteBusList?.addEventListener('click', handleBusCatalogClick);
+popularRoutesList?.addEventListener('click', handleBusCatalogClick);
+tripPlannerResults?.addEventListener('click', handleBusCatalogClick);
+tripPlannerForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  renderTripPlannerResults();
+});
 favoriteBusBtn?.addEventListener('click', () => {
   toggleFavoriteBus(currentBusNumber);
+});
+document.querySelectorAll('[data-alert-distance]').forEach((button) => {
+  button.setAttribute('aria-pressed', 'false');
+  button.addEventListener('click', () => {
+    proximityAlertDistanceKm = Number(button.dataset.alertDistance);
+    document.querySelectorAll('[data-alert-distance]').forEach((choice) => {
+      const selected = choice === button;
+      choice.classList.toggle('is-active', selected);
+      choice.setAttribute('aria-pressed', String(selected));
+    });
+  });
+});
+proximityAlertHeading?.addEventListener('click', () => {
+  const isExpanded = proximityAlertHeading.getAttribute('aria-expanded') === 'true';
+  proximityAlertHeading.setAttribute('aria-expanded', String(!isExpanded));
+  if (proximityAlertChoices) {
+    proximityAlertChoices.hidden = isExpanded;
+  }
+});
+etaStopSelect?.addEventListener('change', () => {
+  updateBusEta(previousLiveBusPosition);
+});
+shareRideWhatsAppBtn?.addEventListener('click', () => {
+  const busNumber = currentBusNumber;
+  const busCode = currentBusSessionCode;
+  if (!busNumber || !busCode) {
+    showToast(t('selectBusFirst'), true);
+    return;
+  }
+  const link = getBusSessionUrl(busCode);
+  const message = t('whatsAppRideMessage', { number: busNumber, link });
+  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
 });
 
 document.querySelectorAll('[data-result-tab]').forEach((tab) => {
@@ -4854,7 +5283,15 @@ window.addEventListener('languagechange', () => {
             resultStops.appendChild(item);
           });
         }
+        renderRouteTimeline(currentBus, previousLiveBusPosition);
+        populateEtaStopOptions(currentBus);
+        updateBusEta(previousLiveBusPosition);
       }
+    }
+    if (!lastSeenRow.hidden && lastSeenMessage.dataset.timestamp) {
+      lastSeenMessage.textContent = t('lastSeen', {
+        time: formatTimeAgo(lastSeenMessage.dataset.timestamp)
+      });
     }
 
     const isNearbyList = nearbyBusLatitude !== null &&
@@ -4899,9 +5336,23 @@ window.addEventListener('languagechange', () => {
         resultTypes,
         activeLiveSessions
       );
-      searchResultsMessage.textContent = t('searchChoice', {
-        query: busSearchQuery
-      });
+      const stopQuery = window.TripTools?.normalizeStopName(busSearchQuery);
+      const isStopQuery = stopQuery &&
+        !getActiveBusCatalog().some((bus) =>
+          normalizeBusNumberKey(bus.busNumber) ===
+          normalizeBusNumberKey(busSearchQuery)
+        ) &&
+        getActiveBusCatalog().some((bus) =>
+          window.TripTools.getBusStops(bus).some((stop) =>
+            window.TripTools.normalizeStopName(stop) === stopQuery
+          )
+        );
+      searchResultsMessage.textContent = isStopQuery
+        ? t('busesThatStopHere', { stop: displayPlaceName(busSearchQuery) })
+        : t('searchChoice', { query: busSearchQuery });
+    }
+    if (tripFromInput?.value.trim() || tripToInput?.value.trim()) {
+      renderTripPlannerResults();
     }
     document.querySelectorAll('.bus-type-badge').forEach((badge) => {
       badge.textContent = badge.dataset.busType === 'ordinary'

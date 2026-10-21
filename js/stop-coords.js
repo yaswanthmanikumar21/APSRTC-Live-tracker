@@ -1,0 +1,3 @@
+(() => {
+  window.STOP_COORDS = {};
+})();

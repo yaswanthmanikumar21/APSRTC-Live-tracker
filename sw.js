@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'apsrtc-live-v5';
+const CACHE_VERSION = 'apsrtc-live-v6';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -16,6 +16,8 @@ const APP_SHELL = [
   '/js/place-names.js',
   '/js/supabaseClient.js',
   '/js/bus-type.js',
+  '/js/stop-coords.js',
+  '/js/trip-tools.js',
   '/js/native-tracking.js',
   '/js/session-control.js',
   '/js/ui-motion.js',
