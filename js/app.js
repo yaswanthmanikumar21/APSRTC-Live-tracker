@@ -22,6 +22,7 @@ let liveMapRetryTimer = null;
 
 const busList = document.getElementById('busList');
 const liveNowList = document.getElementById('liveNowList');
+const liveNowEmptyState = document.getElementById('liveNowEmptyState');
 const favoriteBusList = document.getElementById('favoriteBusList');
 const myBusesSection = document.getElementById('myBusesSection');
 const favoriteBusBtn = document.getElementById('favoriteBusBtn');
@@ -1111,15 +1112,16 @@ function startInitialBusFlyTo(invalidateMapSize = true) {
   markProgrammaticMapMove();
   initialBusFlyInProgress = true;
   deferredInitialBusFlyIn = false;
+  const busPosition = liveBusMarker.getLatLng();
   map.once('moveend', () => {
     initialBusFlyInProgress = false;
     if (isCurrentBusLive() && followLiveBus && liveBusMarker) {
       panMapToLiveBus(true);
     }
   });
-  map.flyTo(getBusMapTarget(liveBusMarker.getLatLng()), 16, {
+  map.flyTo([busPosition.lat, busPosition.lng], 16, {
     animate: !reducedMotion,
-    duration: 1
+    duration: 1.2
   });
   followMapInitializedForBus = true;
 }
@@ -1651,12 +1653,8 @@ function renderLiveNowCards(sessions) {
   liveNowList.replaceChildren();
   const liveSessions = getUnexpiredLiveSessions(sessions);
   window.UIMotion?.updateLiveCount(liveSessions.length);
-
-  if (!liveSessions.length) {
-    const empty = document.createElement('p');
-    empty.className = 'live-now-empty';
-    empty.textContent = t('noLiveBusesShare');
-    liveNowList.appendChild(empty);
+  if (liveNowEmptyState) {
+    liveNowEmptyState.hidden = liveSessions.length > 0;
   }
 
   liveSessions.forEach((session) => {
