@@ -100,6 +100,13 @@
             <button type="submit" class="secondary-button" data-i18n="findBus">Find Bus</button>
           </form>
 
+          <section id="myBusesSection" class="catalog-section favorites-section" aria-labelledby="myBusesHeading" hidden>
+            <div class="section-header">
+              <h2 id="myBusesHeading" data-i18n="myBuses">My buses</h2>
+            </div>
+            <div id="favoriteBusList" class="bus-chip-list" aria-label="Favorite buses" data-i18n-aria-label="myBuses"></div>
+          </section>
+
           <section id="androidAppCard" class="android-app-card" aria-labelledby="androidAppHeading" hidden>
             <div class="android-app-card__copy">
               <h2 id="androidAppHeading" data-i18n="installAndroidApp">Install Android app</h2>
@@ -110,6 +117,20 @@
               href="https://github.com/yaswanthmanikumar21/APSRTC-Live-tracker/releases/latest/download/APSRTC-Live-beta.apk"
               data-i18n="downloadApk"
             >Download APK</a>
+          </section>
+
+          <section class="trip-planner-card" aria-labelledby="tripPlannerHeading">
+            <h2 id="tripPlannerHeading" data-i18n="planTrip">Plan trip</h2>
+            <form id="tripPlannerForm" class="trip-planner-form">
+              <label for="tripFrom" data-i18n="from">From</label>
+              <input id="tripFrom" list="tripStopSuggestions" autocomplete="off" data-i18n-placeholder="tripFromPlaceholder" placeholder="Starting stop" />
+              <label for="tripTo" data-i18n="to">To</label>
+              <input id="tripTo" list="tripStopSuggestions" autocomplete="off" data-i18n-placeholder="tripToPlaceholder" placeholder="Destination stop" />
+              <datalist id="tripStopSuggestions"></datalist>
+              <button type="submit" class="secondary-button" data-i18n="findTrips">Find buses</button>
+            </form>
+            <p id="tripPlannerMessage" class="trip-planner-message" aria-live="polite"></p>
+            <ul id="tripPlannerResults" class="trip-planner-results"></ul>
           </section>
 
           <section
@@ -221,11 +242,33 @@
                     <dt data-i18n="stops">Stops</dt>
                     <dd><ul id="resultStops" class="stop-list"></ul></dd>
                   </div>
+                  <div class="detail-item" id="lastSeenRow" hidden>
+                    <dt data-i18n="lastSeen">Last seen</dt>
+                    <dd id="lastSeenMessage"></dd>
+                  </div>
                   <div class="detail-item">
                     <dt data-i18n="busSession">Bus session</dt>
                     <dd id="resultSessionCode">-</dd>
                   </div>
                 </dl>
+                <section class="trip-info-section">
+                  <p id="busEta" class="bus-eta" aria-live="polite" hidden></p>
+                  <label id="etaStopLabel" for="etaStopSelect" data-i18n="estimateToStop" hidden>Estimate to stop</label>
+                  <select id="etaStopSelect" class="eta-stop-select" hidden></select>
+                  <section class="route-timeline-section" aria-labelledby="routeTimelineHeading">
+                    <h4 id="routeTimelineHeading" data-i18n="routeTimeline">Route timeline</h4>
+                    <ol id="routeTimeline" class="route-timeline"></ol>
+                  </section>
+                  <section class="proximity-alert" aria-labelledby="proximityAlertHeading">
+                    <button id="proximityAlertHeading" type="button" class="secondary-button" data-i18n="notifyWhenNear" aria-expanded="false" aria-controls="proximityAlertChoices">Notify me when near</button>
+                    <div id="proximityAlertChoices" class="proximity-alert__choices" role="group" aria-label="Alert distance" data-i18n-aria-label="alertDistance" hidden>
+                      <button type="button" data-alert-distance="0.5" class="secondary-button" data-i18n="meters500">500 m</button>
+                      <button type="button" data-alert-distance="1" class="secondary-button" data-i18n="kilometer1">1 km</button>
+                      <button type="button" data-alert-distance="2" class="secondary-button" data-i18n="kilometers2">2 km</button>
+                      <p data-i18n="alertOpenAppNote">Works while the app is open.</p>
+                    </div>
+                  </section>
+                </section>
                 <details class="share-location-disclosure">
                   <summary data-i18n="onThisBus">I’m on this bus</summary>
                   <h4 data-i18n="shareLocationSection">Share my location</h4>
@@ -247,6 +290,7 @@
                     <button id="shareLocationBtn" class="share-button" type="button" data-i18n="startSharingLocation">
                       Start sharing location
                     </button>
+                    <p class="sharing-tip" data-i18n="sharingTip">Tip: keep the app open in Recents while sharing. Swiping it away stops sharing. Tap Stop when you're done.</p>
                     <div class="share-controls">
                       <label class="share-label" for="timerSelect" data-i18n="sharingTime">Sharing time</label>
                       <select id="timerSelect" class="share-select">
@@ -328,6 +372,7 @@
               <p id="locationStatusText" class="location-status">
                 Location sharing is inactive.
               </p>
+              <button id="shareRideWhatsAppBtn" class="secondary-button" type="button" data-i18n="shareRideWhatsApp" hidden>Share my ride on WhatsApp</button>
               <p id="sharingReminder" class="sharing-reminder" role="status" hidden>
                 <span data-i18n="sharingReminder">📱 Keep this tab open while sharing for the best results - switching apps may pause your updates. Sorry for the inconvenience, we're working to improve this soon! 🙏</span>
               </p>
@@ -383,18 +428,15 @@
         <div id="map" class="map-container" aria-label="Bus map location" data-i18n-aria-label="mapLocation"></div>
       </div>
 
-      <section id="myBusesSection" class="catalog-section favorites-section" aria-labelledby="myBusesHeading" hidden>
-        <div class="section-header">
-          <h2 id="myBusesHeading" data-i18n="myBuses">My buses</h2>
-        </div>
-        <div id="favoriteBusList" class="bus-list"></div>
-      </section>
-
       <section class="catalog-section" aria-labelledby="busCatalogHeading">
         <div class="section-header">
           <h2 id="busCatalogHeading" data-i18n="allRoutes">All routes</h2>
         </div>
 
+        <section class="popular-routes" aria-labelledby="popularRoutesHeading">
+          <h3 id="popularRoutesHeading" data-i18n="popularRoutes">Popular routes</h3>
+          <div id="popularRoutesList" class="bus-chip-list"></div>
+        </section>
         <div id="busList" class="bus-list"></div>
       </section>
     </main>
@@ -429,6 +471,14 @@
             <span data-i18n="addNewBus">Add new bus</span>
           </button>
           <button id="moreDisclaimerBtn" type="button" class="secondary-button" data-i18n="disclaimer">Disclaimer</button>
+          <section class="poster-qr-section" aria-labelledby="posterQrHeading">
+            <button id="posterQrButton" type="button" class="secondary-button" data-i18n="posterQrLabel">Scan to open APSRTC Live</button>
+            <div id="posterQrPanel" class="poster-qr-panel" hidden>
+              <h3 id="posterQrHeading" data-i18n="posterQrLabel">Scan to open APSRTC Live</h3>
+              <img id="posterQrImage" alt="QR code to open APSRTC Live" data-i18n-alt="posterQrAlt" />
+              <a id="posterQrDownload" class="secondary-button" download="apsrtc-live-qr.png" data-i18n="saveQrImage" hidden>Save QR image</a>
+            </div>
+          </section>
           <a class="secondary-button more-privacy-link" href="privacy.html" data-i18n="privacyHowItWorks">Privacy and how it works</a>
           <a
             id="reportIssueLink"
@@ -505,7 +555,7 @@
         </div>
         <section id="shareSheetQrPanel" class="share-sheet__qr" aria-label="Bus link QR code" data-i18n-aria-label="qrCodeLabel" hidden>
           <img id="shareSheetQrImage" alt="QR code for this bus link" data-i18n-alt="qrCodeAlt" />
-          <a id="shareSheetQrDownload" class="secondary-button" download="share-qr.svg" data-i18n="downloadQr">Download QR</a>
+          <a id="shareSheetQrDownload" class="secondary-button" download="apsrtc-bus-qr.png" data-i18n="saveQrImage" hidden>Save QR image</a>
         </section>
         <p id="shareSheetMessage" class="share-sheet__message" role="status" aria-live="polite"></p>
       </section>
@@ -556,6 +606,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabaseClient.js"></script>
     <script src="js/bus-type.js"></script>
+    <script src="js/stop-coords.js"></script>
+    <script src="js/trip-tools.js"></script>
     <script src="js/native-tracking.js"></script>
     <script src="js/session-control.js"></script>
     <script src="js/ui-motion.js"></script>

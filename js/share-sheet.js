@@ -6,12 +6,33 @@
   const qrPanel = document.getElementById('shareSheetQrPanel');
   const qrImage = document.getElementById('shareSheetQrImage');
   const qrDownload = document.getElementById('shareSheetQrDownload');
+  const posterQrButton = document.getElementById('posterQrButton');
+  const posterQrPanel = document.getElementById('posterQrPanel');
+  const posterQrImage = document.getElementById('posterQrImage');
+  const posterQrDownload = document.getElementById('posterQrDownload');
   const message = document.getElementById('shareSheetMessage');
   const optionButtons = dialog.querySelectorAll('[data-share-action]');
   let returnFocusTarget = null;
   let previousBodyOverflow = '';
   let currentLink = '';
   let currentShareText = '';
+  const hasAppQuery = new URLSearchParams(window.location.search).get('app') === '1';
+  let isNativeApp = false;
+  if (window.Capacitor) {
+    if (typeof window.Capacitor.isNativePlatform !== 'function') {
+      isNativeApp = true;
+    } else {
+      try {
+        isNativeApp = window.Capacitor.isNativePlatform();
+      } catch (error) {
+        console.warn('Could not detect the native app platform for QR downloads.', error);
+        isNativeApp = true;
+      }
+    }
+  }
+  const canSaveQr = !hasAppQuery && !isNativeApp;
+  qrDownload.hidden = !canSaveQr;
+  posterQrDownload.hidden = !canSaveQr;
 
   if (typeof navigator.share === 'function') {
     moreOption.hidden = false;
@@ -101,11 +122,7 @@
         throw new Error('QR code library is unavailable.');
       }
 
-      const qrCode = window.qrcode(0, 'M');
-      qrCode.addData(currentLink);
-      qrCode.make();
-      const svg = qrCode.createSvgTag(5, 4, 'QR code for this bus link');
-      const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      const dataUrl = createQrPngDataUrl(currentLink);
       qrImage.src = dataUrl;
       qrDownload.href = dataUrl;
       qrPanel.hidden = false;
@@ -116,6 +133,53 @@
       qrPanel.hidden = true;
       message.textContent = window.t?.('qrUnavailable') ||
         'QR sharing is unavailable right now.';
+    }
+  }
+
+  function createQrPngDataUrl(value) {
+    const qrCode = window.qrcode(0, 'M');
+    qrCode.addData(value);
+    qrCode.make();
+    const moduleCount = qrCode.getModuleCount();
+    const quietZone = 4;
+    const moduleSize = Math.max(4, Math.ceil(240 / (moduleCount + quietZone * 2)));
+    const canvas = document.createElement('canvas');
+    canvas.width = (moduleCount + quietZone * 2) * moduleSize;
+    canvas.height = canvas.width;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Canvas is unavailable for QR rendering.');
+    }
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = '#000000';
+    for (let row = 0; row < moduleCount; row += 1) {
+      for (let column = 0; column < moduleCount; column += 1) {
+        if (qrCode.isDark(row, column)) {
+          context.fillRect(
+            (column + quietZone) * moduleSize,
+            (row + quietZone) * moduleSize,
+            moduleSize,
+            moduleSize
+          );
+        }
+      }
+    }
+    return canvas.toDataURL('image/png');
+  }
+
+  function showPosterQr() {
+    try {
+      if (typeof window.qrcode !== 'function') {
+        throw new Error('QR code library is unavailable.');
+      }
+      const dataUrl = createQrPngDataUrl('https://apsrtclive.vercel.app/');
+      posterQrImage.src = dataUrl;
+      posterQrDownload.href = dataUrl;
+      posterQrPanel.hidden = false;
+    } catch (error) {
+      console.error('Could not generate the poster QR code.', error);
+      posterQrPanel.hidden = true;
     }
   }
 
@@ -172,7 +236,14 @@
       return;
     }
 
-    currentLink = validLink;
+    const parsedLink = new URL(validLink);
+    const busCode = parsedLink.searchParams.get('bus');
+    if (!busCode) {
+      message.textContent = window.t?.('invalidShareLink') ||
+        'This bus link is not available to share.';
+      return;
+    }
+    currentLink = `https://apsrtclive.vercel.app/?bus=${encodeURIComponent(busCode)}`;
     const busTypeLabel = busType === 'ordinary'
       ? (window.t?.('ordinary') || 'Ordinary')
       : busType === 'metro_express'
@@ -227,6 +298,13 @@
     button.addEventListener('click', () => {
       handleShareAction(button.dataset.shareAction);
     });
+  });
+  posterQrButton?.addEventListener('click', () => {
+    if (posterQrPanel.hidden) {
+      showPosterQr();
+    } else {
+      posterQrPanel.hidden = true;
+    }
   });
 
   window.openBusShareSheet = openBusShareSheet;
